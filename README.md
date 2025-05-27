@@ -1,4 +1,9 @@
-# Streamline
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/c07a86d1-3d1f-4d6c-b20e-15a5d2b01c39" alt="Streamline Logo" width="200"/>
+</p>
+
+<h1 align="center">Streamline by sk</h1>
+<br>
 
 **Streamline** is a portable, dependency-free command-line tool to download YouTube videos or music with embedded metadata and perfectly cropped cover art — all packed into a single native Linux binary.
 
