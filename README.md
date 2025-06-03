@@ -1,6 +1,5 @@
 <p align="center">
-  <img src="![Your paragraph text](https://github.com/user-attachments/assets/704590cf-e536-40b3-ad39-772b294820e4)
-" alt="Streamline Logo" width="200"/>
+  <img src="https://github.com/user-attachments/assets/704590cf-e536-40b3-ad39-772b294820e4" alt="Streamline Logo" width="200"/>
 </p>
 
 <h1 align="center">Streamline by sk</h1>
