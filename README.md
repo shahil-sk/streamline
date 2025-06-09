@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://github.com/user-attachments/assets/c07a86d1-3d1f-4d6c-b20e-15a5d2b01c39" alt="Streamline Logo" width="200"/>
+  <img src="https://github.com/user-attachments/assets/83c7f414-a8ea-4316-8ca3-9314fa6bb857" alt="Streamline Logo" width="200"/>
 </p>
 
 <h1 align="center">Streamline by sk</h1>
