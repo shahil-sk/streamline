@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 )
 
 const (
@@ -102,9 +103,41 @@ func runYTDLP(binDir string, args ...string) {
 	cmd := exec.Command(filepath.Join(binDir, "yt-dlp"), args...)
 	// Ensure ffmpeg is found by yt-dlp
 	cmd.Env = append(os.Environ(), "PATH="+binDir+":"+os.Getenv("PATH"))
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	check(cmd.Run())
+
+	// Capture output
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		fmt.Printf("%sError:%s %v\n", colorRed, colorReset, err)
+		os.Exit(1)
+	}
+
+	// Process output for display
+	outputStr := string(output)
+	lines := strings.Split(outputStr, "\n")
+
+	// Show only relevant information
+	for _, line := range lines {
+		if strings.Contains(line, "[download]") {
+			// Extract progress percentage
+			if strings.Contains(line, "%") {
+				parts := strings.Split(line, "%")
+				if len(parts) > 0 {
+					progress := strings.TrimSpace(parts[0])
+					if strings.Contains(progress, "of") {
+						progress = strings.Split(progress, "of")[0]
+					}
+					fmt.Printf("\r%sDownloading... %s%%%s", colorBlue, strings.TrimSpace(progress), colorReset)
+				}
+			}
+		} else if strings.Contains(line, "Destination:") {
+			// Show filename
+			filename := strings.TrimPrefix(line, "Destination: ")
+			fmt.Printf("\n%sFile:%s %s\n", colorYellow, colorReset, filename)
+		} else if strings.Contains(line, "has already been downloaded") {
+			fmt.Printf("\n%sFile already exists%s\n", colorYellow, colorReset)
+		}
+	}
+	fmt.Println() // New line after progress
 }
 
 // embedThumbnail embeds the thumbnail into the MP3 file using ffmpeg
@@ -177,17 +210,60 @@ func audioDownload(binDir, url string) {
 func videoDownload(binDir, url string) {
 	fmt.Printf("\n%s%s%s\n\n", colorCyan, "Streamline by SK", colorReset)
 	printStatus("info", "Fetching available formats...")
-	runYTDLP(binDir, "-F", url)
 
-	fmt.Printf("\n%s%s%s\n\n", colorRed, "Streamline by SK", colorReset)
-	fmt.Printf("%s%s%s", colorCyan, "Choose a Video ID and Audio ID", colorReset)
-	fmt.Printf("\n%sChoose format ID or combo (e.g. 22 or 137+140):%s ", colorYellow, colorReset)
-	var code string
-	fmt.Scanln(&code)
+	// Show quality presets first
+	fmt.Printf("\n%sQuality Presets:%s\n", colorYellow, colorReset)
+	fmt.Printf("%s1.%s Best Quality (Auto)\n", colorGreen, colorReset)
+	fmt.Printf("%s2.%s 1080p\n", colorGreen, colorReset)
+	fmt.Printf("%s3.%s 720p\n", colorGreen, colorReset)
+	fmt.Printf("%s4.%s 480p\n", colorGreen, colorReset)
+	fmt.Printf("%s5.%s 360p\n", colorGreen, colorReset)
+	fmt.Printf("%s6.%s Custom Format (Advanced)\n", colorGreen, colorReset)
+
+	fmt.Printf("\n%sChoose quality (1-6):%s ", colorYellow, colorReset)
+	var choice string
+	fmt.Scanln(&choice)
+
+	var format string
+	switch choice {
+	case "1":
+		format = "bestvideo+bestaudio/best"
+	case "2":
+		format = "bestvideo[height<=1080]+bestaudio/best[height<=1080]"
+	case "3":
+		format = "bestvideo[height<=720]+bestaudio/best[height<=720]"
+	case "4":
+		format = "bestvideo[height<=480]+bestaudio/best[height<=480]"
+	case "5":
+		format = "bestvideo[height<=360]+bestaudio/best[height<=360]"
+	case "6":
+		// Show all available formats first
+		printStatus("info", "Available formats:")
+		cmd := exec.Command(filepath.Join(binDir, "yt-dlp"), "-F", url)
+		cmd.Env = append(os.Environ(), "PATH="+binDir+":"+os.Getenv("PATH"))
+		output, err := cmd.CombinedOutput()
+		if err != nil {
+			fmt.Printf("%sError:%s %v\n", colorRed, colorReset, err)
+			os.Exit(1)
+		}
+		fmt.Println(string(output))
+
+		fmt.Printf("\n%sFormat Selection Guide:%s\n", colorYellow, colorReset)
+		fmt.Printf("%s•%s For best quality: Choose a video ID (e.g., 137) and an audio ID (e.g., 140)\n", colorGreen, colorReset)
+		fmt.Printf("%s•%s Combine them with a plus sign (e.g., 137+140)\n", colorGreen, colorReset)
+		fmt.Printf("%s•%s Or use a single format ID that includes both video and audio\n", colorGreen, colorReset)
+		fmt.Printf("%s•%s Higher numbers usually mean better quality\n", colorGreen, colorReset)
+
+		fmt.Printf("\n%sEnter format ID or combination:%s ", colorYellow, colorReset)
+		fmt.Scanln(&format)
+	default:
+		printStatus("error", "Invalid choice, using best quality")
+		format = "bestvideo+bestaudio/best"
+	}
 
 	printStatus("info", "Downloading video...")
 	runYTDLP(binDir,
-		"-f", code,
+		"-f", format,
 		"-o", "%(title)s.%(ext)s",
 		url,
 	)
