@@ -37,6 +37,7 @@ jobs:
           GOOS=darwin GOARCH=arm64 go build -ldflags="-s -w" -o streamline-macos-arm64 streamline.go
 
       - name: Create Release
+        if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v1
         with:
           files: |
