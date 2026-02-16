@@ -18,9 +18,12 @@ jobs:
         with:
           go-version: '1.21'
 
+<<<<<<< HEAD
       - name: Test
         run: go test -v ./... || echo "No tests found"
 
+=======
+>>>>>>> c8c7df62c8fb1a8a7fd4769b87c4dcde2be74206
       - name: Build for Linux AMD64
         run: |
           GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o streamline-linux-amd64 streamline.go
