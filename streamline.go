@@ -425,74 +425,126 @@ func runYTDLPWithProgress(binDir string, description string, args ...string) {
 }
 
 func embedThumbnail(binDir, mp3File, thumbFile string) {
-	spinner := NewSpinner("Embedding thumbnail into audio file...")
-	spinner.Start()
-	
-	tempFile := mp3File + ".temp"
-	cmd := exec.Command(filepath.Join(binDir, "ffmpeg"),
-		"-i", mp3File,
-		"-i", thumbFile,
-		"-map", "0:0",
-		"-map", "1:0",
-		"-c", "copy",
-		"-id3v2_version", "3",
-		"-metadata:s:v", "title=Album cover",
-		"-metadata:s:v", "comment=Cover (front)",
-		"-y",
-		"-loglevel", "error",
-		"-f", "mp3",
-		tempFile)
-	
-	err := cmd.Run()
-	spinner.Stop(err == nil)
-	
-	check(err)
-	check(os.Rename(tempFile, mp3File))
+    spinner := NewSpinner("Embedding thumbnail into audio file...")
+    spinner.Start()
+
+    // First, crop/resize the thumbnail to 800x800 square
+    cropped := thumbFile + ".cropped.jpg"
+    cropCmd := exec.Command(filepath.Join(binDir, "ffmpeg"),
+        "-i", thumbFile,
+        "-vf", "scale=w=800:h=800:force_original_aspect_ratio=increase,crop=800:800",
+        "-y",
+        "-loglevel", "error",
+        cropped,
+    )
+    if err := cropCmd.Run(); err != nil {
+        spinner.Stop(false)
+        check(err)
+    }
+
+    tempFile := mp3File + ".temp"
+    cmd := exec.Command(filepath.Join(binDir, "ffmpeg"),
+        "-i", mp3File,
+        "-i", cropped,
+        "-map", "0:0",
+        "-map", "1:0",
+        "-c", "copy",
+        "-id3v2_version", "3",
+        "-metadata:s:v", "title=Album cover",
+        "-metadata:s:v", "comment=Cover (front)",
+        "-y",
+        "-loglevel", "error",
+        "-f", "mp3",
+        tempFile,
+    )
+
+    err := cmd.Run()
+    spinner.Stop(err == nil)
+    check(err)
+
+    check(os.Rename(tempFile, mp3File))
+    _ = os.Remove(cropped)
 }
+
 
 func audioDownload(binDir, url string) {
-	printBanner()
-	
-	spinner := NewSpinner("Fetching video information...")
-	spinner.Start()
-	time.Sleep(500 * time.Millisecond)
-	spinner.Stop(true)
-	
-	printStatus("info", "Starting audio download...")
-	fmt.Println()
-	
-	runYTDLPWithProgress(binDir, "Downloading audio",
-		url,
-		"-f", "bestaudio",
-		"--extract-audio",
-		"--audio-format", "mp3",
-		"--convert-thumbnails", "jpg",
-		"--embed-metadata",
-		"--embed-chapters",
-		"--add-metadata",
-		"-o", "%(title)s.%(ext)s",
-		"--write-thumbnail")
+    printBanner()
 
-	matches, err := filepath.Glob("*.mp3")
-	check(err)
-	if len(matches) == 0 {
-		printStatus("error", "No MP3 file found")
-		os.Exit(1)
-	}
+    spinner := NewSpinner("Fetching video information...")
+    spinner.Start()
+    time.Sleep(500 * time.Millisecond)
+    spinner.Stop(true)
 
-	mp3File := matches[0]
-	thumbMatches, err := filepath.Glob("*.jpg")
-	check(err)
-	
-	if len(thumbMatches) > 0 {
-		thumbFile := thumbMatches[0]
-		embedThumbnail(binDir, mp3File, thumbFile)
-		os.Remove(thumbFile)
-	}
-	
-	fmt.Println()
-	printStatus("success", fmt.Sprintf("✨ Successfully downloaded: %s%s%s", colorBold, mp3File, colorReset))
+    printStatus("info", "Starting audio download...")
+    fmt.Println()
+
+    runYTDLPWithProgress(binDir, "Downloading audio",
+        url,
+        "-f", "bestaudio",
+        "--extract-audio",
+        "--audio-format", "mp3",
+        "--embed-metadata",
+        "--embed-chapters",
+        "--add-metadata",
+        "-o", "%(title)s.%(ext)s",
+        "--write-thumbnail",
+    )
+
+    matches, err := filepath.Glob("*.mp3")
+    check(err)
+    if len(matches) == 0 {
+        printStatus("error", "No MP3 file found")
+        os.Exit(1)
+    }
+
+    mp3File := matches[len(matches)-1] // use the newest/last match
+
+    // Find *this* track's thumbnail only
+    base := strings.TrimSuffix(mp3File, filepath.Ext(mp3File))
+
+    // Accept common image extensions
+    possibleThumbs := []string{
+        base + ".jpg",
+        base + ".jpeg",
+        base + ".png",
+        base + ".webp",
+    }
+
+    var thumbFile string
+    for _, candidate := range possibleThumbs {
+        if _, err := os.Stat(candidate); err == nil {
+            thumbFile = candidate
+            break
+        }
+    }
+
+    if thumbFile == "" {
+        // Fallback: any image with same base, whatever extension
+        imgs, err := filepath.Glob(base + ".*")
+        check(err)
+        for _, f := range imgs {
+            ext := strings.ToLower(filepath.Ext(f))
+            if ext == ".jpg" || ext == ".jpeg" || ext == ".png" || ext == ".webp" {
+                thumbFile = f
+                break
+            }
+        }
+    }
+
+    if thumbFile == "" {
+        printStatus("warning", "No thumbnail file found, skipping cover embed")
+        fmt.Println()
+        printStatus("success", fmt.Sprintf("✨ Successfully downloaded: %s%s%s", colorBold, mp3File, colorReset))
+        return
+    }
+
+    embedThumbnail(binDir, mp3File, thumbFile)
+    _ = os.Remove(thumbFile)
+
+    fmt.Println()
+    printStatus("success", fmt.Sprintf("✨ Successfully downloaded: %s%s%s", colorBold, mp3File, colorReset))
 }
+
 
 func videoDownload(binDir, url string) {
 	printBanner()
