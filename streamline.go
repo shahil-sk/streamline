@@ -372,16 +372,37 @@ func runYTDLPWithProgress(ytdlpPath, ffmpegDir, description string, args ...stri
 	}
 }
 
+// embedThumbnail crops the thumbnail to a square, scales it to 500x500,
+// and embeds it into the MP3 as ID3v2 cover art.
+//
+// Root cause of the old bug: "-c copy" stream-copied the raw 16:9 JPEG
+// with zero processing, so the image was never cropped.
+//
+// Fix:
+//   - "-c:a copy"  – copy the audio stream unchanged
+//   - "-c:v mjpeg" – re-encode the thumbnail so filters can run
+//   - "-vf crop=min(iw\,ih):min(iw\,ih),scale=500:500"
+//       crop= trims the wider dimension to match the shorter one (square)
+//       scale= normalises the result to 500×500 px
+//   - "-q:v 2"     – high-quality JPEG output (scale 1–31, lower = better)
 func embedThumbnail(ffmpegPath, mp3File, thumbFile string) {
-	spinner := NewSpinner("Embedding thumbnail into audio file...")
+	printStatus("info", "Cropping thumbnail to square and embedding...")
+	spinner := NewSpinner("Embedding album art (500×500)...")
 	spinner.Start()
+
 	tempFile := mp3File + ".temp"
 	cmd := exec.Command(ffmpegPath,
 		"-i", mp3File,
 		"-i", thumbFile,
 		"-map", "0:0",
 		"-map", "1:0",
-		"-c", "copy",
+		"-c:a", "copy",
+		"-c:v", "mjpeg",
+		// crop= uses min(iw\,ih) – the backslash escapes the comma from
+		// ffmpeg's filter-chain parser so it is treated as a function
+		// argument separator inside min(), not a filter separator.
+		"-vf", "crop=min(iw\\,ih):min(iw\\,ih),scale=500:500",
+		"-q:v", "2",
 		"-id3v2_version", "3",
 		"-metadata:s:v", "title=Album cover",
 		"-metadata:s:v", "comment=Cover (front)",
@@ -389,6 +410,7 @@ func embedThumbnail(ffmpegPath, mp3File, thumbFile string) {
 		"-loglevel", "error",
 		"-f", "mp3",
 		tempFile)
+
 	err := cmd.Run()
 	spinner.Stop(err == nil)
 	check(err)
