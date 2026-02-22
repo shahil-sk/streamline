@@ -1,7 +1,6 @@
 package main
 
 import (
-	_ "embed"
 	"bufio"
 	"fmt"
 	"io"
@@ -17,7 +16,7 @@ import (
 
 const authorTag = "Streamline by SK (Shahil Ahmed)"
 
-// ANSI color codes and formatting
+// ANSI colour codes – zeroed out on non-TTY or Windows
 var (
 	colorReset  = "\033[0m"
 	colorRed    = "\033[31m"
@@ -29,11 +28,13 @@ var (
 	colorDim    = "\033[2m"
 )
 
-//go:embed yt-dlp
-var ytDLP []byte
-
-//go:embed ffmpeg
-var ffmpegBin []byte
+// Package-level precompiled regexes – compiled once at startup, not per call
+var (
+	reProgressFull = regexp.MustCompile(`\[download\]\s+(\d+\.?\d*)%\s+of\s+~?\s*([\d.]+\s*[KMGT]i?B?)`)
+	reProgressPct  = regexp.MustCompile(`\[download\]\s+(\d+\.?\d*)%`)
+	reSizeExtract  = regexp.MustCompile(`of\s+~?\s*([\d.]+\s*[KMGT]i?B?)`)
+	reParseSize    = regexp.MustCompile(`([\d.]+)\s*([KMGT]i?B?)`)
+)
 
 func init() {
 	if runtime.GOOS == "windows" || !isTerminal() {
@@ -54,13 +55,16 @@ func check(err error) {
 	}
 }
 
-func writeBin(tempDir, name string, content []byte) string {
-	path := filepath.Join(tempDir, name)
-	check(os.WriteFile(path, content, 0755))
-	return path
+// exeName appends .exe on Windows for cross-platform portability
+func exeName(name string) string {
+	if runtime.GOOS == "windows" {
+		return name + ".exe"
+	}
+	return name
 }
 
-// Progress bar component
+// ─── Progress Bar ────────────────────────────────────────────────────────────
+
 type ProgressBar struct {
 	total       float64
 	current     float64
@@ -71,19 +75,18 @@ type ProgressBar struct {
 }
 
 func NewProgressBar(description string, width int) *ProgressBar {
+	now := time.Now()
 	return &ProgressBar{
 		description: description,
 		width:       width,
-		startTime:   time.Now(),
-		lastUpdate:  time.Now(),
+		startTime:   now,
+		lastUpdate:  now,
 	}
 }
 
 func (p *ProgressBar) Update(current, total float64) {
 	p.current = current
 	p.total = total
-	
-	// Throttle updates to every 100ms
 	if time.Since(p.lastUpdate) < 100*time.Millisecond && current < total {
 		return
 	}
@@ -95,22 +98,17 @@ func (p *ProgressBar) Render() {
 	if p.total == 0 {
 		return
 	}
-
 	percent := (p.current / p.total) * 100
 	if percent > 100 {
 		percent = 100
 	}
-	
 	filled := int((percent / 100) * float64(p.width))
 	if filled > p.width {
 		filled = p.width
 	}
-	
-	// Build progress bar
 	bar := strings.Repeat("█", filled)
 	empty := strings.Repeat("░", p.width-filled)
-	
-	// Calculate speed and ETA
+
 	elapsed := time.Since(p.startTime).Seconds()
 	if elapsed < 0.1 {
 		elapsed = 0.1
@@ -120,18 +118,14 @@ func (p *ProgressBar) Render() {
 	if speed > 0 {
 		remaining = (p.total - p.current) / speed
 	}
-	
-	// Format sizes
-	currentMB := p.current / (1024 * 1024)
-	totalMB := p.total / (1024 * 1024)
-	speedMB := speed / (1024 * 1024)
-	
+
+	const mib = 1024 * 1024
 	fmt.Printf("\r%s%s%s %s%s%s%s%s │ %s%.1f%%%s │ %s%.2f/%.2f MB%s │ %s%.2f MB/s%s │ ETA: %s%s%s    ",
 		colorBold, p.description, colorReset,
 		colorGreen, bar, colorDim, empty, colorReset,
 		colorCyan, percent, colorReset,
-		colorYellow, currentMB, totalMB, colorReset,
-		colorBlue, speedMB, colorReset,
+		colorYellow, p.current/mib, p.total/mib, colorReset,
+		colorBlue, speed/mib, colorReset,
 		colorGreen, formatDuration(remaining), colorReset)
 }
 
@@ -143,78 +137,68 @@ func (p *ProgressBar) Complete() {
 	fmt.Println()
 }
 
-// Spinner for indeterminate progress
+// ─── Spinner ─────────────────────────────────────────────────────────────────
+
 type Spinner struct {
 	frames  []string
 	index   int
 	message string
-	active  bool
-	stop    chan bool
+	stop    chan struct{}
 }
 
 func NewSpinner(message string) *Spinner {
 	return &Spinner{
 		frames:  []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"},
 		message: message,
-		stop:    make(chan bool),
+		stop:    make(chan struct{}),
 	}
 }
 
 func (s *Spinner) Start() {
-	s.active = true
 	go func() {
 		ticker := time.NewTicker(80 * time.Millisecond)
 		defer ticker.Stop()
-		
 		for {
 			select {
 			case <-s.stop:
 				return
 			case <-ticker.C:
-				if s.active {
-					fmt.Printf("\r%s%s%s %s   ", colorCyan, s.frames[s.index], colorReset, s.message)
-					s.index = (s.index + 1) % len(s.frames)
-				}
+				fmt.Printf("\r%s%s%s %s   ", colorCyan, s.frames[s.index], colorReset, s.message)
+				s.index = (s.index + 1) % len(s.frames)
 			}
 		}
 	}()
 }
 
+// Stop signals the spinner goroutine via channel close (race-free, one-shot)
 func (s *Spinner) Stop(success bool) {
-	s.active = false
-	s.stop <- true
-	time.Sleep(100 * time.Millisecond) // Give time for goroutine to stop
-	
-	icon := "✓"
-	color := colorGreen
+	close(s.stop)
+	time.Sleep(100 * time.Millisecond)
+	icon, color := "✓", colorGreen
 	if !success {
-		icon = "✗"
-		color = colorRed
+		icon, color = "✗", colorRed
 	}
-	
 	fmt.Printf("\r%s%s%s %s\n", color, icon, colorReset, s.message)
 }
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
 
 func formatDuration(seconds float64) string {
 	if seconds < 0 || seconds > 86400 {
 		return "--:--"
 	}
-	
 	minutes := int(seconds) / 60
 	secs := int(seconds) % 60
-	
 	if minutes > 60 {
 		hours := minutes / 60
-		minutes = minutes % 60
+		minutes %= 60
 		return fmt.Sprintf("%dh %dm", hours, minutes)
 	}
-	
 	return fmt.Sprintf("%02d:%02d", minutes, secs)
 }
 
 func usage() {
-	fmt.Printf(`
-%s╔═════════════════════════════════════════════╗
+	fmt.Printf(`%s╔═════════════════════════════════════════════╗
 ║  %sStreamline%s - YouTube/SoundCloud Downloader ║
 ╚═════════════════════════════════════════════╝%s
 
@@ -244,192 +228,155 @@ func usage() {
 }
 
 func printBanner() {
-// 	banner := `
-//   ╔═══════════════════╗
-//   ║  Streamline by SK ║
-//   ╚═══════════════════╝
-// `
-	banner:= `
+	const banner = `
 ╔═════════════════════════════════════════════╗
 ║ Streamline - YouTube/SoundCloud Downloader  ║
-╚═════════════════════════════════════════════╝
-	`
+╚═════════════════════════════════════════════╝`
 	fmt.Printf("%s%s%s\n", colorCyan, banner, colorReset)
 }
 
 func printStatus(status, message string) {
-	icons := map[string]string{
-		"info":    "ℹ",
-		"success": "✓",
-		"warning": "⚠",
-		"error":   "✗",
+	type entry struct{ icon, color string }
+	table := map[string]entry{
+		"info":    {"ℹ", colorBlue},
+		"success": {"✓", colorGreen},
+		"warning": {"⚠", colorYellow},
+		"error":   {"✗", colorRed},
 	}
-	colors := map[string]string{
-		"info":    colorBlue,
-		"success": colorGreen,
-		"warning": colorYellow,
-		"error":   colorRed,
+	e, ok := table[status]
+	if !ok {
+		e = entry{"•", colorReset}
 	}
-	
-	icon := icons[status]
-	color := colors[status]
-	if icon == "" {
-		icon = "•"
-	}
-	if color == "" {
-		color = colorReset
-	}
-	
-	fmt.Printf("%s%s%s %s\n", color, icon, colorReset, message)
+	fmt.Printf("%s%s%s %s\n", e.color, e.icon, colorReset, message)
 }
 
 func parseSize(sizeStr string) float64 {
-	// Remove any whitespace
 	sizeStr = strings.TrimSpace(sizeStr)
-	
-	// Parse sizes like "12.34MiB" or "1.2GiB" or "12.34M" or "1.2G"
-	re := regexp.MustCompile(`([\d.]+)\s*([KMGT]i?B?)`)
-	matches := re.FindStringSubmatch(sizeStr)
-	
+	matches := reParseSize.FindStringSubmatch(sizeStr)
 	if len(matches) < 3 {
 		return 0
 	}
-	
 	value, _ := strconv.ParseFloat(matches[1], 64)
 	unit := strings.ToUpper(matches[2])
-	
-	// Normalize unit
 	if len(unit) == 1 {
-		unit = unit + "B"
+		unit += "B"
 	}
-	
 	multipliers := map[string]float64{
-		"B":   1,
-		"KB":  1024,
-		"KIB": 1024,
-		"MB":  1024 * 1024,
-		"MIB": 1024 * 1024,
-		"GB":  1024 * 1024 * 1024,
-		"GIB": 1024 * 1024 * 1024,
-		"TB":  1024 * 1024 * 1024 * 1024,
-		"TIB": 1024 * 1024 * 1024 * 1024,
+		"B": 1, "KB": 1024, "KIB": 1024,
+		"MB": 1024 * 1024, "MIB": 1024 * 1024,
+		"GB": 1024 * 1024 * 1024, "GIB": 1024 * 1024 * 1024,
+		"TB": 1024 * 1024 * 1024 * 1024, "TIB": 1024 * 1024 * 1024 * 1024,
 	}
-	
-	mult, ok := multipliers[unit]
-	if !ok {
-		mult = multipliers[unit[:len(unit)-1]+"IB"]
+	if mult, ok := multipliers[unit]; ok {
+		return value * mult
 	}
-	
-	return value * mult
+	if len(unit) > 1 {
+		if mult, ok := multipliers[unit[:len(unit)-1]+"IB"]; ok {
+			return value * mult
+		}
+	}
+	return 0
 }
 
-func runYTDLPWithProgress(binDir string, description string, args ...string) {
-	// Add progress flags
+// scannerBufSize is large enough to handle yt-dlp's widest output lines
+const scannerBufSize = 256 * 1024
+
+func runYTDLPWithProgress(ytdlpPath, ffmpegDir, description string, args ...string) {
 	args = append(args, "--newline", "--progress")
-	
-	cmd := exec.Command(filepath.Join(binDir, "yt-dlp"), args...)
-	cmd.Env = append(os.Environ(), "PATH="+binDir+string(filepath.ListSeparator)+os.Getenv("PATH"))
-	
+	cmd := exec.Command(ytdlpPath, args...)
+	cmd.Env = append(os.Environ(),
+		"PATH="+ffmpegDir+string(filepath.ListSeparator)+os.Getenv("PATH"))
+
 	stdout, err := cmd.StdoutPipe()
 	check(err)
-	
 	stderr, err := cmd.StderrPipe()
 	check(err)
-	
 	check(cmd.Start())
-	
-	var progressBar *ProgressBar
-	
-	// Read both stdout and stderr
+
 	scanner := bufio.NewScanner(io.MultiReader(stdout, stderr))
-	
-	// Regex patterns for different output formats
-	progressRegex := regexp.MustCompile(`\[download\]\s+(\d+\.?\d*)%\s+of\s+~?\s*([\d.]+\s*[KMGT]i?B)`)
-	progressRegex2 := regexp.MustCompile(`\[download\]\s+(\d+\.?\d*)%`)
-	sizeRegex := regexp.MustCompile(`of\s+~?\s*([\d.]+\s*[KMGT]i?B)`)
-	
-	var totalSize float64
-	
+	scanner.Buffer(make([]byte, scannerBufSize), scannerBufSize)
+
+	var (
+		progressBar *ProgressBar
+		totalSize   float64
+	)
+
 	for scanner.Scan() {
 		line := scanner.Text()
-		
-		// Check for download progress
-		if strings.Contains(line, "[download]") {
-			// Try to extract total size if not yet known
-			if totalSize == 0 {
-				if matches := sizeRegex.FindStringSubmatch(line); len(matches) >= 2 {
-					totalSize = parseSize(matches[1])
-				}
-			}
-			
-			// Try first pattern: [download]  45.2% of 12.34MiB
-			if matches := progressRegex.FindStringSubmatch(line); len(matches) >= 3 {
-				percent, _ := strconv.ParseFloat(matches[1], 64)
-				total := parseSize(matches[2])
-				
-				if total > 0 {
-					totalSize = total
-					current := total * (percent / 100)
-					
-					if progressBar == nil {
-						progressBar = NewProgressBar(description, 40)
-					}
-					progressBar.Update(current, total)
-				}
-			} else if matches := progressRegex2.FindStringSubmatch(line); len(matches) >= 2 {
-				// Try second pattern: just percentage
-				percent, _ := strconv.ParseFloat(matches[1], 64)
-				
-				if totalSize > 0 {
-					current := totalSize * (percent / 100)
-					if progressBar == nil {
-						progressBar = NewProgressBar(description, 40)
-					}
-					progressBar.Update(current, totalSize)
-				}
-			}
-			
-			// Check for destination
-			if strings.Contains(line, "Destination:") {
+
+		if !strings.Contains(line, "[download]") {
+			if strings.Contains(line, "Merging formats") {
 				if progressBar != nil {
 					progressBar.Complete()
 					progressBar = nil
 				}
-				filename := strings.TrimSpace(strings.TrimPrefix(line, "[download] Destination:"))
-				printStatus("info", fmt.Sprintf("File: %s", filename))
-			} else if strings.Contains(line, "has already been downloaded") {
-				printStatus("warning", "File already exists, skipping...")
-			} else if strings.Contains(line, "100%") || strings.Contains(line, "download completed") {
-				if progressBar != nil {
-					progressBar.Complete()
-					progressBar = nil
-				}
+				printStatus("info", "Merging video and audio streams...")
 			}
-		} else if strings.Contains(line, "Merging formats") {
+			continue
+		}
+
+		// Lazily capture total size from the first size annotation seen
+		if totalSize == 0 {
+			if m := reSizeExtract.FindStringSubmatch(line); len(m) >= 2 {
+				totalSize = parseSize(m[1])
+			}
+		}
+
+		switch {
+		case strings.Contains(line, "Destination:"):
 			if progressBar != nil {
 				progressBar.Complete()
 				progressBar = nil
 			}
-			printStatus("info", "Merging video and audio streams...")
+			filename := strings.TrimSpace(strings.TrimPrefix(line, "[download] Destination:"))
+			printStatus("info", "File: "+filename)
+
+		case strings.Contains(line, "has already been downloaded"):
+			printStatus("warning", "File already exists, skipping...")
+
+		default:
+			if m := reProgressFull.FindStringSubmatch(line); len(m) >= 3 {
+				pct, _ := strconv.ParseFloat(m[1], 64)
+				total := parseSize(m[2])
+				if total > 0 {
+					totalSize = total
+					if progressBar == nil {
+						progressBar = NewProgressBar(description, 40)
+					}
+					progressBar.Update(total*(pct/100), total)
+					if pct >= 100 {
+						progressBar.Complete()
+						progressBar = nil
+					}
+				}
+			} else if m := reProgressPct.FindStringSubmatch(line); len(m) >= 2 && totalSize > 0 {
+				pct, _ := strconv.ParseFloat(m[1], 64)
+				if progressBar == nil {
+					progressBar = NewProgressBar(description, 40)
+				}
+				progressBar.Update(totalSize*(pct/100), totalSize)
+				if pct >= 100 {
+					progressBar.Complete()
+					progressBar = nil
+				}
+			}
 		}
 	}
-	
+
 	if progressBar != nil {
 		progressBar.Complete()
 	}
-	
 	if err := cmd.Wait(); err != nil {
 		fmt.Fprintf(os.Stderr, "%s✗ Download failed:%s %v\n", colorRed, colorReset, err)
 		os.Exit(1)
 	}
 }
 
-func embedThumbnail(binDir, mp3File, thumbFile string) {
+func embedThumbnail(ffmpegPath, mp3File, thumbFile string) {
 	spinner := NewSpinner("Embedding thumbnail into audio file...")
 	spinner.Start()
-	
 	tempFile := mp3File + ".temp"
-	cmd := exec.Command(filepath.Join(binDir, "ffmpeg"),
+	cmd := exec.Command(ffmpegPath,
 		"-i", mp3File,
 		"-i", thumbFile,
 		"-map", "0:0",
@@ -442,26 +389,46 @@ func embedThumbnail(binDir, mp3File, thumbFile string) {
 		"-loglevel", "error",
 		"-f", "mp3",
 		tempFile)
-	
 	err := cmd.Run()
 	spinner.Stop(err == nil)
-	
 	check(err)
 	check(os.Rename(tempFile, mp3File))
 }
 
-func audioDownload(binDir, url string) {
+// copyFile copies src to dst byte-for-byte (cross-device fallback for os.Rename)
+func copyFile(src, dst string) {
+	in, err := os.Open(src)
+	check(err)
+	defer in.Close()
+	out, err := os.Create(dst)
+	check(err)
+	defer out.Close()
+	_, err = io.Copy(out, in)
+	check(err)
+}
+
+// moveFile renames src to dst, falling back to copy+delete on cross-device moves
+func moveFile(src, dst string) {
+	if err := os.Rename(src, dst); err != nil {
+		copyFile(src, dst)
+		os.Remove(src)
+	}
+}
+
+// ─── Download Commands ───────────────────────────────────────────────────────
+
+func audioDownload(ytdlpPath, ffmpegPath, workDir, url string) {
 	printBanner()
-	
 	spinner := NewSpinner("Fetching video information...")
 	spinner.Start()
 	time.Sleep(500 * time.Millisecond)
 	spinner.Stop(true)
-	
+
 	printStatus("info", "Starting audio download...")
 	fmt.Println()
-	
-	runYTDLPWithProgress(binDir, "Downloading audio",
+
+	ffmpegDir := filepath.Dir(ffmpegPath)
+	runYTDLPWithProgress(ytdlpPath, ffmpegDir, "Downloading audio",
 		url,
 		"-f", "bestaudio",
 		"--extract-audio",
@@ -470,31 +437,30 @@ func audioDownload(binDir, url string) {
 		"--embed-metadata",
 		"--embed-chapters",
 		"--add-metadata",
-		"-o", "%(title)s.%(ext)s",
+		"-o", filepath.Join(workDir, "%(title)s.%(ext)s"),
 		"--write-thumbnail")
 
-	matches, err := filepath.Glob("*.mp3")
+	mp3Files, err := filepath.Glob(filepath.Join(workDir, "*.mp3"))
 	check(err)
-	if len(matches) == 0 {
+	if len(mp3Files) == 0 {
 		printStatus("error", "No MP3 file found")
 		os.Exit(1)
 	}
 
-	mp3File := matches[0]
-	thumbMatches, err := filepath.Glob("*.jpg")
-	check(err)
-	
-	if len(thumbMatches) > 0 {
-		thumbFile := thumbMatches[0]
-		embedThumbnail(binDir, mp3File, thumbFile)
-		os.Remove(thumbFile)
+	mp3File := mp3Files[0]
+	if thumbFiles, _ := filepath.Glob(filepath.Join(workDir, "*.jpg")); len(thumbFiles) > 0 {
+		embedThumbnail(ffmpegPath, mp3File, thumbFiles[0])
+		os.Remove(thumbFiles[0])
 	}
-	
+
+	dest := filepath.Base(mp3File)
+	moveFile(mp3File, dest)
+
 	fmt.Println()
-	printStatus("success", fmt.Sprintf("✨ Successfully downloaded: %s%s%s", colorBold, mp3File, colorReset))
+	printStatus("success", fmt.Sprintf("✨ Successfully downloaded: %s%s%s", colorBold, dest, colorReset))
 }
 
-func videoDownload(binDir, url string) {
+func videoDownload(ytdlpPath, ffmpegPath, workDir, url string) {
 	printBanner()
 
 	presets := []struct{ label, format string }{
@@ -508,9 +474,9 @@ func videoDownload(binDir, url string) {
 
 	fmt.Printf("%s┌─ Quality Presets ───────────────────────────┐%s\n", colorYellow, colorReset)
 	for i, p := range presets {
-		fmt.Printf("%s│%s %s%d.%s %-40s %s│%s\n", 
+		fmt.Printf("%s│%s %s%d.%s %-40s %s│%s\n",
 			colorYellow, colorReset,
-			colorGreen, i+1, colorReset, 
+			colorGreen, i+1, colorReset,
 			p.label,
 			colorYellow, colorReset)
 	}
@@ -521,45 +487,48 @@ func videoDownload(binDir, url string) {
 	fmt.Scanln(&choice)
 	fmt.Println()
 
+	ffmpegDir := filepath.Dir(ffmpegPath)
 	var format string
-	if choice > 0 && choice < len(presets) {
+
+	switch {
+	case choice > 0 && choice < len(presets):
 		format = presets[choice-1].format
-	} else if choice == len(presets) {
+	case choice == len(presets):
 		spinner := NewSpinner("Fetching available formats...")
 		spinner.Start()
-		
-		cmd := exec.Command(filepath.Join(binDir, "yt-dlp"), "-F", url)
-		cmd.Env = append(os.Environ(), "PATH="+binDir+string(filepath.ListSeparator)+os.Getenv("PATH"))
+		cmd := exec.Command(ytdlpPath, "-F", url)
+		cmd.Env = append(os.Environ(),
+			"PATH="+ffmpegDir+string(filepath.ListSeparator)+os.Getenv("PATH"))
 		output, err := cmd.CombinedOutput()
-		
 		spinner.Stop(err == nil)
-		
 		if err == nil {
 			fmt.Println(string(output))
 		}
-
 		fmt.Printf("\n%sEnter format ID or combination (e.g., 137+140):%s ", colorCyan, colorReset)
 		fmt.Scanln(&format)
 		fmt.Println()
-	} else {
+	default:
 		printStatus("warning", "Invalid choice, using best quality")
 		format = "bestvideo+bestaudio/best"
 	}
 
 	printStatus("info", "Starting video download...")
 	fmt.Println()
-	
-	runYTDLPWithProgress(binDir, "Downloading video",
+
+	runYTDLPWithProgress(ytdlpPath, ffmpegDir, "Downloading video",
 		"-f", format,
-		"-o", "%(title)s.%(ext)s",
+		"-o", filepath.Join(workDir, "%(title)s.%(ext)s"),
 		url)
 
-	matches, _ := filepath.Glob("*.mp4")
-	if len(matches) > 0 {
+	if mp4Files, _ := filepath.Glob(filepath.Join(workDir, "*.mp4")); len(mp4Files) > 0 {
+		dest := filepath.Base(mp4Files[0])
+		moveFile(mp4Files[0], dest)
 		fmt.Println()
-		printStatus("success", fmt.Sprintf("✨ Successfully downloaded: %s%s%s", colorBold, matches[0], colorReset))
+		printStatus("success", fmt.Sprintf("✨ Successfully downloaded: %s%s%s", colorBold, dest, colorReset))
 	}
 }
+
+// ─── Entry Point ─────────────────────────────────────────────────────────────
 
 func main() {
 	if len(os.Args) == 2 && os.Args[1] == "--about" {
@@ -568,27 +537,23 @@ func main() {
 			colorYellow, colorReset, colorBlue, colorReset)
 		os.Exit(0)
 	}
-
 	if len(os.Args) < 3 {
 		usage()
 	}
 
-	tempDir, err := os.MkdirTemp("", "streamline")
+	ytdlpPath, ffmpegPath, cleanup := resolveBinaries()
+	defer cleanup()
+
+	// Isolated work dir prevents glob from accidentally matching files in the user's CWD
+	workDir, err := os.MkdirTemp("", "streamline-work")
 	check(err)
-	defer os.RemoveAll(tempDir)
+	defer os.RemoveAll(workDir)
 
-	binDir := filepath.Join(tempDir, "bin")
-	check(os.Mkdir(binDir, 0755))
-
-	writeBin(binDir, "yt-dlp", ytDLP)
-	writeBin(binDir, "ffmpeg", ffmpegBin)
-
-	cmd, url := os.Args[1], os.Args[2]
-	switch cmd {
+	switch os.Args[1] {
 	case "-m":
-		audioDownload(binDir, url)
+		audioDownload(ytdlpPath, ffmpegPath, workDir, os.Args[2])
 	case "-v":
-		videoDownload(binDir, url)
+		videoDownload(ytdlpPath, ffmpegPath, workDir, os.Args[2])
 	default:
 		usage()
 	}
