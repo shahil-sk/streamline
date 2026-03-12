@@ -142,7 +142,8 @@ jobs:
   # ------------------------------------------------------------------ #
   release:
     name: GitHub Release
-    needs: [tag, build-lightweight, build-bundled]
+    # needs: [tag, build-lightweight, build-bundled]
+    needs: [tag, build-lightweight]
     runs-on: ubuntu-latest
     if: github.event_name == 'push'
     permissions:
