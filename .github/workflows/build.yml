@@ -89,53 +89,53 @@ jobs:
   # ------------------------------------------------------------------ #
   #  Bundled / portable build – embeds yt-dlp + ffmpeg (linux-amd64)    #
   # ------------------------------------------------------------------ #
-  build-bundled:
-    name: Bundled (portable) · linux-amd64
-    runs-on: ubuntu-latest
-    needs: tag
-    if: always() && (github.event_name == 'push' || github.event_name == 'pull_request')
+  # build-bundled:
+  #   name: Bundled (portable) · linux-amd64
+  #   runs-on: ubuntu-latest
+  #   needs: tag
+  #   if: always() && (github.event_name == 'push' || github.event_name == 'pull_request')
 
-    steps:
-      - uses: actions/checkout@v4
+  #   steps:
+  #     - uses: actions/checkout@v4
 
-      - uses: actions/setup-go@v5
-        with:
-          go-version-file: go.mod
-          cache: true
+  #     - uses: actions/setup-go@v5
+  #       with:
+  #         go-version-file: go.mod
+  #         cache: true
 
-      - name: Download yt-dlp
-        run: |
-          curl -fsSL \
-            https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp \
-            -o yt-dlp
-          chmod +x yt-dlp
+  #     - name: Download yt-dlp
+  #       run: |
+  #         curl -fsSL \
+  #           https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp \
+  #           -o yt-dlp
+  #         chmod +x yt-dlp
 
-      - name: Download ffmpeg (static amd64)
-        run: |
-          curl -fsSL \
-            https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz \
-            -o ffmpeg.tar.xz
-          tar -xf ffmpeg.tar.xz
-          cp ffmpeg-*-amd64-static/ffmpeg .
-          chmod +x ffmpeg
+  #     - name: Download ffmpeg (static amd64)
+  #       run: |
+  #         curl -fsSL \
+  #           https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz \
+  #           -o ffmpeg.tar.xz
+  #         tar -xf ffmpeg.tar.xz
+  #         cp ffmpeg-*-amd64-static/ffmpeg .
+  #         chmod +x ffmpeg
 
-      - name: Build bundled binary
-        env:
-          CGO_ENABLED: "0"
-        run: |
-          mkdir -p dist
-          go build \
-            -tags bundled \
-            -ldflags="-s -w" \
-            -trimpath \
-            -o dist/streamline-linux-amd64-bundled \
-            .
+  #     - name: Build bundled binary
+  #       env:
+  #         CGO_ENABLED: "0"
+  #       run: |
+  #         mkdir -p dist
+  #         go build \
+  #           -tags bundled \
+  #           -ldflags="-s -w" \
+  #           -trimpath \
+  #           -o dist/streamline-linux-amd64-bundled \
+  #           .
 
-      - uses: actions/upload-artifact@v4
-        with:
-          name: streamline-linux-amd64-bundled
-          path: dist/
-          if-no-files-found: error
+  #     - uses: actions/upload-artifact@v4
+  #       with:
+  #         name: streamline-linux-amd64-bundled
+  #         path: dist/
+  #         if-no-files-found: error
 
   # ------------------------------------------------------------------ #
   #  GitHub Release – fires on every push to master (not PRs)          #
