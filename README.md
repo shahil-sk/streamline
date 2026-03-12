@@ -59,8 +59,8 @@ Supports YouTube and SoundCloud URLs.
 ## Installation (Prebuilt Binary)
 
 ```bash
-chmod +x streamline
-sudo mv streamline /usr/local/bin
+chmod +x streamline-platform-arch
+sudo mv streamline-platform-arch /usr/local/bin/streamline
 ```
 
 Then run from anywhere:
