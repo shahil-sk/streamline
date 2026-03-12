@@ -10,7 +10,7 @@ import (
 // Available to both the default and bundled builds.
 func check(err error) {
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "\n%s✗ Error:%s %v\n", colorRed, colorReset, err)
+		fmt.Fprintf(os.Stderr, "\n%s✗ Error:%s %v\n", err)
 		os.Exit(1)
 	}
 }
