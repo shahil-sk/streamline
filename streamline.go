@@ -51,25 +51,8 @@ func isTerminal() bool {
 	return err == nil && (fi.Mode()&os.ModeCharDevice) != 0
 }
 
-func check(err error) {
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "\n%s✗ Error:%s %v\n", colorRed, colorReset, err)
-		os.Exit(1)
-	}
-}
-
-// exeName appends .exe on Windows for cross-platform portability
-func exeName(name string) string {
-	if runtime.GOOS == "windows" {
-		return name + ".exe"
-	}
-	return name
-}
-
 // ─── Missing Dependency Error ─────────────────────────────────────────────────
 
-// missingDepError prints a styled, actionable error when a required system
-// dependency is not found, then exits with code 1.
 func missingDepError(name, installURL string) {
 	var installHint string
 	switch runtime.GOOS {
@@ -127,8 +110,6 @@ func missingDepError(name, installURL string) {
 }
 
 // resolveBinaries locates yt-dlp and ffmpeg on the system PATH.
-// Returns their full paths and a no-op cleanup function.
-// This is the default (lightweight) build – the binary itself stays tiny.
 func resolveBinaries() (ytdlpPath, ffmpegPath string, cleanup func()) {
 	cleanup = func() {}
 
@@ -253,7 +234,6 @@ func (s *Spinner) Start() {
 	}()
 }
 
-// Stop signals the spinner goroutine via channel close (race-free, one-shot)
 func (s *Spinner) Stop(success bool) {
 	close(s.stop)
 	time.Sleep(100 * time.Millisecond)
@@ -361,7 +341,6 @@ func parseSize(sizeStr string) float64 {
 	return 0
 }
 
-// scannerBufSize is large enough to handle yt-dlp's widest output lines
 const scannerBufSize = 256 * 1024
 
 func runYTDLPWithProgress(ytdlpPath, ffmpegDir, description string, args ...string) {
@@ -398,7 +377,6 @@ func runYTDLPWithProgress(ytdlpPath, ffmpegDir, description string, args ...stri
 			continue
 		}
 
-		// Lazily capture total size from the first size annotation seen
 		if totalSize == 0 {
 			if m := reSizeExtract.FindStringSubmatch(line); len(m) >= 2 {
 				totalSize = parseSize(m[1])
@@ -455,8 +433,6 @@ func runYTDLPWithProgress(ytdlpPath, ffmpegDir, description string, args ...stri
 	}
 }
 
-// embedThumbnail crops the thumbnail to a square, scales it to 500x500,
-// and embeds it into the MP3 as ID3v2 cover art.
 func embedThumbnail(ffmpegPath, mp3File, thumbFile string) {
 	printStatus("info", "Cropping thumbnail to square and embedding...")
 	spinner := NewSpinner("Embedding album art (500×500)...")
@@ -486,7 +462,6 @@ func embedThumbnail(ffmpegPath, mp3File, thumbFile string) {
 	check(os.Rename(tempFile, mp3File))
 }
 
-// copyFile copies src to dst byte-for-byte (cross-device fallback for os.Rename)
 func copyFile(src, dst string) {
 	in, err := os.Open(src)
 	check(err)
@@ -498,7 +473,6 @@ func copyFile(src, dst string) {
 	check(err)
 }
 
-// moveFile renames src to dst, falling back to copy+delete on cross-device moves
 func moveFile(src, dst string) {
 	if err := os.Rename(src, dst); err != nil {
 		copyFile(src, dst)
@@ -635,7 +609,6 @@ func main() {
 	ytdlpPath, ffmpegPath, cleanup := resolveBinaries()
 	defer cleanup()
 
-	// Isolated work dir prevents glob from accidentally matching files in the user's CWD
 	workDir, err := os.MkdirTemp("", "streamline-work")
 	check(err)
 	defer os.RemoveAll(workDir)
