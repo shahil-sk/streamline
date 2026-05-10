@@ -19,21 +19,6 @@ import (
 const authorTag = "Streamline by SK (Shahil Ahmed)"
 const releasesURL = "https://github.com/shahil-sk/streamline/releases/latest"
 
-// ANSI colour codes – zeroed out on non-TTY or Windows
-var (
-	colorReset  = "\033[0m"
-	colorRed    = "\033[31m"
-	colorGreen  = "\033[32m"
-	colorYellow = "\033[33m"
-	colorBlue   = "\033[34m"
-	colorCyan   = "\033[36m"
-	colorBold   = "\033[1m"
-	colorDim    = "\033[2m"
-)
-
-// debugMode is enabled by the --debug or --verbose flag.
-var debugMode bool
-
 // Package-level precompiled regexes – compiled once at startup, not per call
 var (
 	reProgressFull = regexp.MustCompile(`\[download\]\s+(\d+\.?\d*)%\s+of\s+~?\s*([\d.]+\s*[KMGT]i?B?)`)
@@ -42,19 +27,7 @@ var (
 	reParseSize    = regexp.MustCompile(`([\d.]+)\s*([KMGT]i?B?)`)
 )
 
-func init() {
-	if runtime.GOOS == "windows" || !isTerminal() {
-		colorReset, colorRed, colorGreen, colorYellow = "", "", "", ""
-		colorBlue, colorCyan, colorBold, colorDim = "", "", "", ""
-	}
-}
-
-func isTerminal() bool {
-	fi, err := os.Stdout.Stat()
-	return err == nil && (fi.Mode()&os.ModeCharDevice) != 0
-}
-
-// ─── Debug / Verbose Logging ─────────────────────────────────────────────────
+// ─── Debug / Verbose Logging ──────────────────────────────────────────────────
 
 // debugLog prints a timestamped debug line to stderr when --debug is active.
 // Format: [DEBUG 15:04:05.000] <message>
@@ -152,7 +125,7 @@ func resolveBinaries() (ytdlpPath, ffmpegPath string, cleanup func()) {
 	return ytdlpPath, ffmpegPath, cleanup
 }
 
-// ─── Progress Bar ────────────────────────────────────────────────────────────
+// ─── Progress Bar ─────────────────────────────────────────────────────────────
 
 type ProgressBar struct {
 	total       float64
@@ -231,7 +204,7 @@ func (p *ProgressBar) Complete() {
 	fmt.Println()
 }
 
-// ─── Spinner ─────────────────────────────────────────────────────────────────
+// ─── Spinner ──────────────────────────────────────────────────────────────────
 
 type Spinner struct {
 	frames  []string
@@ -276,7 +249,7 @@ func (s *Spinner) Stop(success bool) {
 	debugLog("Spinner stopped: %q success=%v", s.message, success)
 }
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 func formatDuration(seconds float64) string {
 	if seconds < 0 || seconds > 86400 {
@@ -298,9 +271,9 @@ func usage() {
 ╚═════════════════════════════════════════════╝%s
 
 %sUsage:%s
-  streamline -m <url>        Download audio with metadata and cover
-  streamline -v <url>        Download video, choose quality manually
-  streamline --about         Show author information
+  streamline -m <url>          Download audio with metadata and cover
+  streamline -v <url>          Download video, choose quality manually
+  streamline --about           Show author information
   streamline --debug -m <url>  Enable verbose debug output
 
 %sExamples:%s
@@ -387,7 +360,6 @@ const scannerBufSize = 256 * 1024
 
 func runYTDLPWithProgress(ytdlpPath, ffmpegDir, description string, args ...string) {
 	args = append(args, "--newline", "--progress")
-
 	debugLog("Launching yt-dlp: %s %s", ytdlpPath, strings.Join(args, " "))
 
 	cmd := exec.Command(ytdlpPath, args...)
@@ -399,7 +371,6 @@ func runYTDLPWithProgress(ytdlpPath, ffmpegDir, description string, args ...stri
 	stderr, err := cmd.StderrPipe()
 	check(err)
 	check(cmd.Start())
-
 	debugLog("yt-dlp PID=%d started", cmd.Process.Pid)
 
 	scanner := bufio.NewScanner(io.MultiReader(stdout, stderr))
@@ -490,7 +461,6 @@ func runYTDLPWithProgress(ytdlpPath, ffmpegDir, description string, args ...stri
 	}
 
 	debugLog("yt-dlp output finished: %d lines processed", linesRead)
-
 	if progressBar != nil {
 		progressBar.Complete()
 	}
@@ -533,7 +503,6 @@ func embedThumbnail(ffmpegPath, mp3File, thumbFile string) {
 		debugLog("embedThumbnail ffmpeg error: %v", err)
 	}
 	check(err)
-
 	debugLog("embedThumbnail: replacing %s with temp file", mp3File)
 	check(os.Rename(tempFile, mp3File))
 	printStatus("success", "Album art embedded successfully")
@@ -560,11 +529,10 @@ func moveFile(src, dst string) {
 	}
 }
 
-// ─── Download Commands ───────────────────────────────────────────────────────
+// ─── Download Commands ────────────────────────────────────────────────────────
 
 func audioDownload(ytdlpPath, ffmpegPath, workDir, url string) {
 	printBanner()
-
 	printStatus("info", fmt.Sprintf("URL: %s%s%s", colorBlue, url, colorReset))
 	printStatus("info", fmt.Sprintf("Work dir: %s%s%s", colorDim, workDir, colorReset))
 	debugLog("audioDownload called: url=%s workDir=%s", url, workDir)
@@ -574,7 +542,7 @@ func audioDownload(ytdlpPath, ffmpegPath, workDir, url string) {
 	time.Sleep(500 * time.Millisecond)
 	spinner.Stop(true)
 
-	printStatus("info", "Mode: %saudio (MP3 + metadata + cover art)%s")
+	printStatus("info", "Mode: audio (MP3 + metadata + cover art)")
 	printStatus("info", "Starting audio download...")
 	fmt.Println()
 
@@ -628,8 +596,7 @@ func audioDownload(ytdlpPath, ffmpegPath, workDir, url string) {
 	fi, err := os.Stat(dest)
 	if err == nil {
 		const mib = 1024 * 1024
-		printStatus("info", fmt.Sprintf("Final file size: %s%.2f MB%s",
-			colorCyan, float64(fi.Size())/mib, colorReset))
+		printStatus("info", fmt.Sprintf("Final file size: %s%.2f MB%s", colorCyan, float64(fi.Size())/mib, colorReset))
 	}
 
 	fmt.Println()
@@ -639,7 +606,6 @@ func audioDownload(ytdlpPath, ffmpegPath, workDir, url string) {
 
 func videoDownload(ytdlpPath, ffmpegPath, workDir, url string) {
 	printBanner()
-
 	printStatus("info", fmt.Sprintf("URL: %s%s%s", colorBlue, url, colorReset))
 	printStatus("info", fmt.Sprintf("Work dir: %s%s%s", colorDim, workDir, colorReset))
 	debugLog("videoDownload called: url=%s workDir=%s", url, workDir)
@@ -667,7 +633,6 @@ func videoDownload(ytdlpPath, ffmpegPath, workDir, url string) {
 	var choice int
 	fmt.Scanln(&choice)
 	fmt.Println()
-
 	debugLog("User selected quality preset: %d", choice)
 
 	ffmpegDir := filepath.Dir(ffmpegPath)
@@ -721,8 +686,7 @@ func videoDownload(ytdlpPath, ffmpegPath, workDir, url string) {
 		fi, err := os.Stat(dest)
 		if err == nil {
 			const mib = 1024 * 1024
-			printStatus("info", fmt.Sprintf("Final file size: %s%.2f MB%s",
-				colorCyan, float64(fi.Size())/mib, colorReset))
+			printStatus("info", fmt.Sprintf("Final file size: %s%.2f MB%s", colorCyan, float64(fi.Size())/mib, colorReset))
 		}
 
 		fmt.Println()
@@ -740,7 +704,7 @@ func videoDownload(ytdlpPath, ffmpegPath, workDir, url string) {
 	}
 }
 
-// ─── Entry Point ─────────────────────────────────────────────────────────────
+// ─── Entry Point ──────────────────────────────────────────────────────────────
 
 func main() {
 	// Strip --debug / --verbose early so other arg parsing is not affected.
