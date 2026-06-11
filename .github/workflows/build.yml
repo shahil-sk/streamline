@@ -60,11 +60,50 @@ jobs:
           if-no-files-found: error
 
   # ------------------------------------------------------------------ #
-  #  Bundled / portable build – embeds yt-dlp + ffmpeg (linux-amd64)    #
+  #  Bundled / portable builds – embeds yt-dlp + ffmpeg                #
   # ------------------------------------------------------------------ #
   build-bundled:
-    name: Bundled (portable) · linux-amd64
+    name: Bundled · ${{ matrix.goos }}-${{ matrix.goarch }}
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - goos: linux
+            goarch: amd64
+            ytdlp: yt-dlp_linux
+            ffmpeg_url: "https://github.com/yt-dlp/FFmpeg-Builds/releases/latest/download/ffmpeg-master-latest-linux64-gpl.tar.xz"
+            ffmpeg_archive: "ffmpeg.tar.xz"
+            ffmpeg_bin: "ffmpeg-master-latest-linux64-gpl/bin/ffmpeg"
+            ext: ""
+          - goos: linux
+            goarch: arm64
+            ytdlp: yt-dlp_linux_aarch64
+            ffmpeg_url: "https://github.com/yt-dlp/FFmpeg-Builds/releases/latest/download/ffmpeg-master-latest-linuxarm64-gpl.tar.xz"
+            ffmpeg_archive: "ffmpeg.tar.xz"
+            ffmpeg_bin: "ffmpeg-master-latest-linuxarm64-gpl/bin/ffmpeg"
+            ext: ""
+          - goos: windows
+            goarch: amd64
+            ytdlp: yt-dlp.exe
+            ffmpeg_url: "https://github.com/yt-dlp/FFmpeg-Builds/releases/latest/download/ffmpeg-master-latest-win64-gpl.zip"
+            ffmpeg_archive: "ffmpeg.zip"
+            ffmpeg_bin: "ffmpeg-master-latest-win64-gpl/bin/ffmpeg.exe"
+            ext: ".exe"
+          - goos: darwin
+            goarch: amd64
+            ytdlp: yt-dlp_macos
+            ffmpeg_url: "https://evermeet.cx/ffmpeg/getrelease/zip"
+            ffmpeg_archive: "ffmpeg.zip"
+            ffmpeg_bin: "ffmpeg"
+            ext: ""
+          - goos: darwin
+            goarch: arm64
+            ytdlp: yt-dlp_macos
+            ffmpeg_url: "https://evermeet.cx/ffmpeg/getrelease/zip"
+            ffmpeg_archive: "ffmpeg.zip"
+            ffmpeg_bin: "ffmpeg"
+            ext: ""
 
     steps:
       - uses: actions/checkout@v4
@@ -76,22 +115,26 @@ jobs:
 
       - name: Download yt-dlp
         run: |
-          curl -fsSL \
-            https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp \
-            -o yt-dlp
+          curl -fsSL "https://github.com/yt-dlp/yt-dlp/releases/latest/download/${{ matrix.ytdlp }}" -o yt-dlp
           chmod +x yt-dlp
 
-      - name: Download ffmpeg (yt-dlp builds amd64)
+      - name: Download ffmpeg
         run: |
-          curl -fsSL \
-            https://github.com/yt-dlp/FFmpeg-Builds/releases/latest/download/ffmpeg-master-latest-linux64-gpl.tar.xz \
-            -o ffmpeg.tar.xz
-          tar -xf ffmpeg.tar.xz
-          cp ffmpeg-master-latest-linux64-gpl/bin/ffmpeg .
+          curl -fsL "${{ matrix.ffmpeg_url }}" -o ${{ matrix.ffmpeg_archive }}
+          if [[ "${{ matrix.ffmpeg_archive }}" == *.zip ]]; then
+            unzip -q ${{ matrix.ffmpeg_archive }}
+          else
+            tar -xf ${{ matrix.ffmpeg_archive }}
+          fi
+          if [[ "${{ matrix.ffmpeg_bin }}" != "ffmpeg" ]]; then
+            cp "${{ matrix.ffmpeg_bin }}" ffmpeg
+          fi
           chmod +x ffmpeg
 
       - name: Build bundled binary
         env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
           CGO_ENABLED: "0"
         run: |
           mkdir -p dist
@@ -99,12 +142,12 @@ jobs:
             -tags bundled \
             -ldflags="-s -w" \
             -trimpath \
-            -o dist/streamline-linux-amd64-bundled \
+            -o "dist/streamline-${{ matrix.goos }}-${{ matrix.goarch }}-bundled${{ matrix.ext }}" \
             .
 
       - uses: actions/upload-artifact@v4
         with:
-          name: streamline-linux-amd64-bundled
+          name: streamline-${{ matrix.goos }}-${{ matrix.goarch }}-bundled
           path: dist/
           if-no-files-found: error
 
