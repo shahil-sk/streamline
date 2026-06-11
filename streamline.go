@@ -317,7 +317,7 @@ func usage() {
 ╚═════════════════════════════════════════════╝%s
 
 %sUsage:%s
-  streamline -m <url>    Download audio with metadata and cover
+  streamline -m <url>    Download audio, choose format and quality
   streamline -v <url>    Download video, choose quality manually
   streamline --about     Show author information
 
@@ -326,8 +326,8 @@ func usage() {
   streamline -v https://youtu.be/xxxxx
 
 %sFlags:%s
-  %s-m%s        Music/audio mode (MP3 + metadata + cover art)
-  %s-v%s        Video mode (quality selection)
+  %s-m%s        Music/audio mode (interactive format & quality)
+  %s-v%s        Video mode (interactive quality selection)
   %s--about%s   Author information
 
 `,
@@ -338,6 +338,7 @@ func usage() {
 		colorGreen, colorReset,
 		colorGreen, colorReset,
 		colorGreen, colorReset)
+	runCleanups()
 	os.Exit(0)
 }
 
