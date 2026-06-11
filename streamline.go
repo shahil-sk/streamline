@@ -40,7 +40,7 @@ var (
 	reProgressFull = regexp.MustCompile(`\[download\]\s+(\d+\.?\d*)%\s+of\s+~?\s*([\d.]+\s*[KMGT]i?B?)`)
 	reProgressPct  = regexp.MustCompile(`\[download\]\s+(\d+\.?\d*)%`)
 	reSizeExtract  = regexp.MustCompile(`of\s+~?\s*([\d.]+\s*[KMGT]i?B?)`)
-	reParseSize    = regexp.MustCompile(`([\d.]+)\s*([KMGT]i?B?)`)
+	reParseSize    = regexp.MustCompile(`([\d.]+)\s*([KMGT]?i?B?)`)
 )
 
 func init() {
@@ -382,7 +382,7 @@ func parseSize(sizeStr string) float64 {
 	}
 	value, _ := strconv.ParseFloat(matches[1], 64)
 	unit := strings.ToUpper(matches[2])
-	if len(unit) == 1 {
+	if len(unit) == 1 && unit != "B" {
 		unit += "B"
 	}
 	multipliers := map[string]float64{
