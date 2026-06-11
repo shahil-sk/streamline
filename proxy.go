@@ -30,8 +30,14 @@ func (p *proxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		targetAddr := net.JoinHostPort(ips[0].String(), port)
-		destConn, err := net.DialTimeout("tcp", targetAddr, 10*time.Second)
+		var destConn net.Conn
+		for _, ip := range ips {
+			targetAddr := net.JoinHostPort(ip.String(), port)
+			destConn, err = net.DialTimeout("tcp", targetAddr, 5*time.Second)
+			if err == nil {
+				break
+			}
+		}
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusServiceUnavailable)
 			return
@@ -43,16 +49,17 @@ func (p *proxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		clientConn, _, err := hijacker.Hijack()
+		clientConn, bufrw, err := hijacker.Hijack()
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusServiceUnavailable)
 			return
 		}
 
 		clientConn.Write([]byte("HTTP/1.1 200 Connection Established\r\n\r\n"))
+		bufrw.Flush()
 
 		go func() {
-			io.Copy(destConn, clientConn)
+			io.Copy(destConn, bufrw)
 			destConn.Close()
 		}()
 		go func() {
@@ -70,7 +77,14 @@ func (p *proxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			if err != nil || len(ips) == 0 {
 				return nil, err
 			}
-			return net.DialTimeout("tcp", net.JoinHostPort(ips[0].String(), port), 10*time.Second)
+			var destConn net.Conn
+			for _, ip := range ips {
+				destConn, err = net.DialTimeout("tcp", net.JoinHostPort(ip.String(), port), 5*time.Second)
+				if err == nil {
+					return destConn, nil
+				}
+			}
+			return nil, err
 		},
 	}
 
