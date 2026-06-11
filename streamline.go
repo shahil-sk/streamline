@@ -293,9 +293,12 @@ func formatDuration(seconds float64) string {
 }
 
 func usage() {
-	fmt.Printf(`%s╔═══════════════════════════════════════════════════════╗
-║  %sStreamline%s - YouTube/SoundCloud/Instagram Downloader ║
-╚═══════════════════════════════════════════════════════╝%s
+	fmt.Printf(`%s   _____ __                               ___          
+  / ___// /_________  ____ _____ ___     / (_)___  ___ 
+  \__ \/ __/ ___/ _ \/ __ '/ __ '__ \   / / / __ \/ _ \
+ ___/ / /_/ /  /  __/ /_/ / / / / / /  / / / / / /  __/
+/____/\__/_/   \___/\__,_/_/ /_/ /_/  /_/_/_/ /_/\___/ %s
+      %sYouTube • SoundCloud • Instagram Downloader%s
 
 %sUsage:%s
   streamline -m [flags] <url>    Download audio
@@ -312,13 +315,15 @@ func usage() {
   %s-q%s        Quiet mode (skip prompts, use best quality)
   %s-s%s        Remove sponsor segments (SponsorBlock)
   %s--subs%s    Embed subtitles (video only)
+  %s--dns%s     Bypass system DNS via custom server or DoH endpoint
   %s--about%s   Author information
 
 `,
-		colorCyan, colorBold, colorReset, colorReset,
+		colorCyan, colorReset, colorYellow, colorReset,
 		colorYellow, colorReset,
 		colorYellow, colorReset,
 		colorYellow, colorReset,
+		colorGreen, colorReset,
 		colorGreen, colorReset,
 		colorGreen, colorReset,
 		colorGreen, colorReset,
@@ -331,11 +336,13 @@ func usage() {
 }
 
 func printBanner() {
-	const banner = `
-╔═══════════════════════════════════════════════════════╗
-║ Streamline - YouTube/SoundCloud/Instagram Downloader  ║
-╚═══════════════════════════════════════════════════════╝`
-	fmt.Printf("%s%s%s\n", colorCyan, banner, colorReset)
+	const banner = `   _____ __                               ___          
+  / ___// /_________  ____ _____ ___     / (_)___  ___ 
+  \__ \/ __/ ___/ _ \/ __ '/ __ '__ \   / / / __ \/ _ \
+ ___/ / /_/ /  /  __/ /_/ / / / / / /  / / / / / /  __/
+/____/\__/_/   \___/\__,_/_/ /_/ /_/  /_/_/_/ /_/\___/ 
+      YouTube • SoundCloud • Instagram Downloader`
+	fmt.Printf("%s%s%s\n\n", colorCyan, banner, colorReset)
 }
 
 func printStatus(status, message string) {
