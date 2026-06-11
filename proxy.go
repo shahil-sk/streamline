@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"io"
 	"net"
 	"net/http"
@@ -11,6 +13,46 @@ import (
 
 type proxyHandler struct {
 	resolver *net.Resolver
+	dohURL   string
+}
+
+func (p *proxyHandler) lookupIP(ctx context.Context, host string) ([]net.IP, error) {
+	if p.dohURL != "" {
+		req, err := http.NewRequestWithContext(ctx, "GET", p.dohURL+"?name="+host+"&type=A", nil)
+		if err != nil {
+			return nil, err
+		}
+		req.Header.Set("Accept", "application/dns-json")
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			return nil, err
+		}
+		defer resp.Body.Close()
+
+		var res struct {
+			Answer []struct {
+				Data string `json:"data"`
+				Type int    `json:"type"`
+			} `json:"Answer"`
+		}
+		if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
+			return nil, err
+		}
+
+		var ips []net.IP
+		for _, a := range res.Answer {
+			if a.Type == 1 || a.Type == 28 {
+				if ip := net.ParseIP(a.Data); ip != nil {
+					ips = append(ips, ip)
+				}
+			}
+		}
+		if len(ips) == 0 {
+			return nil, fmt.Errorf("no IPs found via DoH")
+		}
+		return ips, nil
+	}
+	return p.resolver.LookupIP(ctx, "ip", host)
 }
 
 func (p *proxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -24,7 +66,7 @@ func (p *proxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 
-		ips, err := p.resolver.LookupIP(ctx, "ip", host)
+		ips, err := p.lookupIP(ctx, host)
 		if err != nil || len(ips) == 0 {
 			http.Error(w, "DNS lookup failed", http.StatusBadGateway)
 			return
@@ -73,7 +115,7 @@ func (p *proxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	transport := &http.Transport{
 		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
 			host, port, _ := net.SplitHostPort(addr)
-			ips, err := p.resolver.LookupIP(ctx, "ip", host)
+			ips, err := p.lookupIP(ctx, host)
 			if err != nil || len(ips) == 0 {
 				return nil, err
 			}
@@ -113,16 +155,22 @@ func (p *proxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func startDNSProxy(dnsServer string) (string, error) {
-	if !strings.Contains(dnsServer, ":") {
-		dnsServer = net.JoinHostPort(dnsServer, "53")
-	}
+	var handler *proxyHandler
 
-	resolver := &net.Resolver{
-		PreferGo: true,
-		Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
-			d := net.Dialer{Timeout: 5 * time.Second}
-			return d.DialContext(ctx, "udp", dnsServer)
-		},
+	if strings.HasPrefix(dnsServer, "https://") {
+		handler = &proxyHandler{dohURL: dnsServer}
+	} else {
+		if !strings.Contains(dnsServer, ":") {
+			dnsServer = net.JoinHostPort(dnsServer, "53")
+		}
+		resolver := &net.Resolver{
+			PreferGo: true,
+			Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
+				d := net.Dialer{Timeout: 5 * time.Second}
+				return d.DialContext(ctx, "udp", dnsServer)
+			},
+		}
+		handler = &proxyHandler{resolver: resolver}
 	}
 
 	l, err := net.Listen("tcp", "127.0.0.1:0")
@@ -130,7 +178,7 @@ func startDNSProxy(dnsServer string) (string, error) {
 		return "", err
 	}
 
-	go http.Serve(l, &proxyHandler{resolver: resolver})
+	go http.Serve(l, handler)
 
 	return "http://" + l.Addr().String(), nil
 }
