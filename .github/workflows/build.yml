@@ -110,13 +110,13 @@ jobs:
             -o yt-dlp
           chmod +x yt-dlp
 
-      - name: Download ffmpeg (static amd64)
+      - name: Download ffmpeg (yt-dlp builds amd64)
         run: |
           curl -fsSL \
-            https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz \
+            https://github.com/yt-dlp/FFmpeg-Builds/releases/latest/download/ffmpeg-master-latest-linux64-gpl.tar.xz \
             -o ffmpeg.tar.xz
           tar -xf ffmpeg.tar.xz
-          cp ffmpeg-*-amd64-static/ffmpeg .
+          cp ffmpeg-master-latest-linux64-gpl/bin/ffmpeg .
           chmod +x ffmpeg
 
       - name: Build bundled binary
