@@ -7,6 +7,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"net/url"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -418,10 +419,15 @@ func runYTDLPWithProgress(ytdlpPath, ffmpegDir, description string, args ...stri
 	var (
 		progressBar *ProgressBar
 		totalSize   float64
+		lastError   string
 	)
 
 	for scanner.Scan() {
 		line := scanner.Text()
+
+		if strings.Contains(line, "ERROR:") {
+			lastError = line
+		}
 
 		if !strings.Contains(line, "[download]") {
 			if strings.Contains(line, "Merging formats") {
@@ -492,7 +498,11 @@ func runYTDLPWithProgress(ytdlpPath, ffmpegDir, description string, args ...stri
 		progressBar.Complete()
 	}
 	if err := cmd.Wait(); err != nil {
-		fmt.Fprintf(os.Stderr, "%s✗ Download failed:%s %v\n", colorRed, colorReset, err)
+		if lastError != "" {
+			fmt.Fprintf(os.Stderr, "\n%s✗ Download failed:%s %s\n", colorRed, colorReset, lastError)
+		} else {
+			fmt.Fprintf(os.Stderr, "\n%s✗ Download failed:%s %v\n", colorRed, colorReset, err)
+		}
 		runCleanups()
 		os.Exit(1)
 	}
@@ -545,9 +555,11 @@ func embedThumbnail(ffmpegPath, audioFile, thumbFile string) {
 	}
 
 	cmd := exec.Command(ffmpegPath, args...)
-	err := cmd.Run()
+	output, err := cmd.CombinedOutput()
 	spinner.Stop(err == nil)
-	check(err)
+	if err != nil {
+		exitWithError(fmt.Sprintf("Failed to embed thumbnail: %v\n%s", err, string(output)))
+	}
 	check(os.Rename(tempFile, audioFile))
 }
 
@@ -714,8 +726,15 @@ func validateURL(urlStr string) error {
 	if urlStr == "" {
 		return fmt.Errorf("empty URL")
 	}
-	if !strings.HasPrefix(urlStr, "http://") && !strings.HasPrefix(urlStr, "https://") {
-		return fmt.Errorf("must start with http:// or https://")
+	u, err := url.ParseRequestURI(urlStr)
+	if err != nil {
+		return fmt.Errorf("malformed URL: %v", err)
+	}
+	if u.Scheme != "http" && u.Scheme != "https" {
+		return fmt.Errorf("must use http or https scheme")
+	}
+	if u.Host == "" {
+		return fmt.Errorf("invalid host")
 	}
 	return nil
 }
@@ -768,9 +787,10 @@ func videoDownload(ytdlpPath, ffmpegPath, workDir, url, outDir string, quiet boo
 				"PATH="+ffmpegDir+string(filepath.ListSeparator)+os.Getenv("PATH"))
 			output, err := cmd.CombinedOutput()
 			spinner.Stop(err == nil)
-			if err == nil {
-				fmt.Println(string(output))
+			if err != nil {
+				exitWithError(fmt.Sprintf("Failed to fetch formats:\n%s", string(output)))
 			}
+			fmt.Println(string(output))
 			format = readInput(fmt.Sprintf("\n%sEnter format ID or combination (e.g., 137+140):%s ", colorCyan, colorReset))
 			fmt.Println()
 			if format == "" {
