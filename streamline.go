@@ -568,23 +568,30 @@ func embedThumbnail(ffmpegPath, audioFile, thumbFile string) {
 }
 
 // copyFile copies src to dst byte-for-byte (cross-device fallback for os.Rename)
-func copyFile(src, dst string) {
+func copyFile(src, dst string) error {
 	in, err := os.Open(src)
-	check(err)
+	if err != nil {
+		return err
+	}
 	defer in.Close()
 	out, err := os.Create(dst)
-	check(err)
+	if err != nil {
+		return err
+	}
 	defer out.Close()
 	_, err = io.Copy(out, in)
-	check(err)
+	return err
 }
 
 // moveFile renames src to dst, falling back to copy+delete on cross-device moves
-func moveFile(src, dst string) {
+func moveFile(src, dst string) error {
 	if err := os.Rename(src, dst); err != nil {
-		copyFile(src, dst)
+		if err := copyFile(src, dst); err != nil {
+			return err
+		}
 		os.Remove(src)
 	}
+	return nil
 }
 
 // ─── Download Commands ───────────────────────────────────────────────────────
@@ -683,7 +690,9 @@ func audioDownload(ytdlpPath, ffmpegPath, workDir, url, outDir string, quiet, sp
 	runYTDLPWithProgress(ytdlpPath, ffmpegDir, "Downloading audio", args...)
 
 	audioFiles, err := filepath.Glob(filepath.Join(workDir, "*."+audioFmt))
-	check(err)
+	if err != nil {
+		exitWithError(fmt.Sprintf("Failed to scan output directory: %v", err))
+	}
 	if len(audioFiles) == 0 {
 		exitWithError("No audio file found")
 	}
@@ -710,7 +719,9 @@ func audioDownload(ytdlpPath, ffmpegPath, workDir, url, outDir string, quiet, sp
 		if outDir != "" {
 			destPath = filepath.Join(outDir, destName)
 		}
-		moveFile(audioFile, destPath)
+		if err := moveFile(audioFile, destPath); err != nil {
+			exitWithError(fmt.Sprintf("Failed to save audio file: %v", err))
+		}
 
 		if !quiet {
 			fmt.Println()
@@ -830,7 +841,9 @@ func videoDownload(ytdlpPath, ffmpegPath, workDir, url, outDir string, quiet, sp
 	runYTDLPWithProgress(ytdlpPath, ffmpegDir, "Downloading video", args...)
 
 	files, err := filepath.Glob(filepath.Join(workDir, "*"))
-	check(err)
+	if err != nil {
+		exitWithError(fmt.Sprintf("Failed to scan output directory: %v", err))
+	}
 
 	var downloadedCount int
 	for _, file := range files {
@@ -848,7 +861,9 @@ func videoDownload(ytdlpPath, ffmpegPath, workDir, url, outDir string, quiet, sp
 		if outDir != "" {
 			destPath = filepath.Join(outDir, destName)
 		}
-		moveFile(file, destPath)
+		if err := moveFile(file, destPath); err != nil {
+			exitWithError(fmt.Sprintf("Failed to save video file: %v", err))
+		}
 		if !quiet {
 			fmt.Println()
 		}
