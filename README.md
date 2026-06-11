@@ -4,7 +4,7 @@
 
 <h1 align="center">Streamline</h1>
 <p align="center">
-  A fast, portable media downloader for YouTube and SoundCloud
+  A fast, portable media downloader for YouTube, SoundCloud, and Instagram
 </p>
 
 <p align="center">
@@ -17,7 +17,7 @@
 
 ## Overview
 
-**Streamline** downloads audio or video from YouTube and SoundCloud with embedded metadata and cover art.
+**Streamline** downloads audio or video from YouTube, SoundCloud, and Instagram with embedded metadata and cover art.
 
 Two build modes are available:
 
@@ -30,7 +30,7 @@ Two build modes are available:
 
 ## Features
 
-* Download YouTube/SoundCloud audio as MP3 with embedded metadata and cover art
+* Download YouTube/SoundCloud/Instagram audio as MP3 with embedded metadata and cover art
 * Download YouTube videos with interactive quality selection
 * Real-time progress bar with speed and ETA
 * Cross-platform: Linux, macOS, Windows
@@ -52,7 +52,7 @@ streamline -m <url>
 streamline -v <url>
 ```
 
-Supports YouTube and SoundCloud URLs.
+Supports YouTube, SoundCloud, and Instagram URLs.
 
 ---
 

@@ -293,9 +293,9 @@ func formatDuration(seconds float64) string {
 }
 
 func usage() {
-	fmt.Printf(`%s╔═════════════════════════════════════════════╗
-║  %sStreamline%s - YouTube/SoundCloud Downloader ║
-╚═════════════════════════════════════════════╝%s
+	fmt.Printf(`%s╔═══════════════════════════════════════════════════════╗
+║  %sStreamline%s - YouTube/SoundCloud/Instagram Downloader ║
+╚═══════════════════════════════════════════════════════╝%s
 
 %sUsage:%s
   streamline -m [flags] <url>    Download audio
@@ -332,9 +332,9 @@ func usage() {
 
 func printBanner() {
 	const banner = `
-╔═════════════════════════════════════════════╗
-║ Streamline - YouTube/SoundCloud Downloader  ║
-╚═════════════════════════════════════════════╝`
+╔═══════════════════════════════════════════════════════╗
+║ Streamline - YouTube/SoundCloud/Instagram Downloader  ║
+╚═══════════════════════════════════════════════════════╝`
 	fmt.Printf("%s%s%s\n", colorCyan, banner, colorReset)
 }
 
