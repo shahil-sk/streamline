@@ -4,6 +4,7 @@ package main
 
 import (
 	"bufio"
+	"flag"
 	"fmt"
 	"io"
 	"os"
@@ -317,17 +318,18 @@ func usage() {
 ╚═════════════════════════════════════════════╝%s
 
 %sUsage:%s
-  streamline -m <url>    Download audio, choose format and quality
-  streamline -v <url>    Download video, choose quality manually
-  streamline --about     Show author information
+  streamline -m [flags] <url>    Download audio
+  streamline -v [flags] <url>    Download video
 
 %sExamples:%s
   streamline -m https://youtube.com/watch?v=xxxxx
-  streamline -v https://youtu.be/xxxxx
+  streamline -v -q -o ~/Downloads https://youtu.be/xxxxx
 
 %sFlags:%s
-  %s-m%s        Music/audio mode (interactive format & quality)
-  %s-v%s        Video mode (interactive quality selection)
+  %s-m%s        Music/audio mode
+  %s-v%s        Video mode
+  %s-o%s        Output directory (default: current directory)
+  %s-q%s        Quiet mode (skip prompts, use best quality)
   %s--about%s   Author information
 
 `,
@@ -335,6 +337,8 @@ func usage() {
 		colorYellow, colorReset,
 		colorYellow, colorReset,
 		colorYellow, colorReset,
+		colorGreen, colorReset,
+		colorGreen, colorReset,
 		colorGreen, colorReset,
 		colorGreen, colorReset,
 		colorGreen, colorReset)
@@ -443,10 +447,16 @@ func runYTDLPWithProgress(ytdlpPath, ffmpegDir, description string, args ...stri
 				progressBar.Complete()
 				progressBar = nil
 			}
+			totalSize = 0 // Reset for the new file in playlist
 			filename := strings.TrimSpace(strings.TrimPrefix(line, "[download] Destination:"))
-			printStatus("info", "File: "+filename)
+			printStatus("info", "File: "+filepath.Base(filename))
 
 		case strings.Contains(line, "has already been downloaded"):
+			if progressBar != nil {
+				progressBar.Complete()
+				progressBar = nil
+			}
+			totalSize = 0 // Reset for the new file in playlist
 			printStatus("warning", "File already exists, skipping...")
 
 		default:
@@ -563,62 +573,75 @@ func moveFile(src, dst string) {
 
 // ─── Download Commands ───────────────────────────────────────────────────────
 
-func audioDownload(ytdlpPath, ffmpegPath, workDir, url string) {
-	printBanner()
-
-	fmt.Printf("%s┌─ Audio Format ──────────────────────────────┐%s\n", colorYellow, colorReset)
-	formats := []string{"mp3", "m4a", "flac", "wav", "opus"}
-	for i, f := range formats {
-		fmt.Printf("%s│%s %s%d.%s %-40s %s│%s\n",
-			colorYellow, colorReset,
-			colorGreen, i+1, colorReset,
-			strings.ToUpper(f),
-			colorYellow, colorReset)
+func audioDownload(ytdlpPath, ffmpegPath, workDir, url, outDir string, quiet bool) {
+	if !quiet {
+		printBanner()
 	}
-	fmt.Printf("%s└─────────────────────────────────────────────┘%s\n\n", colorYellow, colorReset)
 
-	input := readInput(fmt.Sprintf("%sChoose format (1-%d) [default: 1]:%s ", colorCyan, len(formats), colorReset))
-	choice, _ := strconv.Atoi(input)
-	if choice < 1 || choice > len(formats) {
-		choice = 1
-	}
-	audioFmt := formats[choice-1]
-	fmt.Println()
-
+	var audioFmt string
 	var audioQuality string
-	if audioFmt == "mp3" || audioFmt == "m4a" || audioFmt == "opus" {
-		fmt.Printf("%s┌─ Audio Quality ─────────────────────────────┐%s\n", colorYellow, colorReset)
-		qualities := []struct{ label, val string }{
-			{"320kbps (Best)", "320K"},
-			{"256kbps (High)", "256K"},
-			{"192kbps (Standard)", "192K"},
-			{"128kbps (Low)", "128K"},
-		}
-		for i, q := range qualities {
+	formats := []string{"mp3", "m4a", "flac", "wav", "opus"}
+
+	if quiet {
+		audioFmt = "mp3"
+		audioQuality = "320K"
+	} else {
+		fmt.Printf("%s┌─ Audio Format ──────────────────────────────┐%s\n", colorYellow, colorReset)
+		for i, f := range formats {
 			fmt.Printf("%s│%s %s%d.%s %-40s %s│%s\n",
 				colorYellow, colorReset,
 				colorGreen, i+1, colorReset,
-				q.label,
+				strings.ToUpper(f),
 				colorYellow, colorReset)
 		}
 		fmt.Printf("%s└─────────────────────────────────────────────┘%s\n\n", colorYellow, colorReset)
 
-		qInput := readInput(fmt.Sprintf("%sChoose quality (1-%d) [default: 1]:%s ", colorCyan, len(qualities), colorReset))
-		qChoice, _ := strconv.Atoi(qInput)
-		if qChoice < 1 || qChoice > len(qualities) {
-			qChoice = 1
+		input := readInput(fmt.Sprintf("%sChoose format (1-%d) [default: 1]:%s ", colorCyan, len(formats), colorReset))
+		choice, _ := strconv.Atoi(input)
+		if choice < 1 || choice > len(formats) {
+			choice = 1
 		}
-		audioQuality = qualities[qChoice-1].val
+		audioFmt = formats[choice-1]
 		fmt.Println()
+
+		if audioFmt == "mp3" || audioFmt == "m4a" || audioFmt == "opus" {
+			fmt.Printf("%s┌─ Audio Quality ─────────────────────────────┐%s\n", colorYellow, colorReset)
+			qualities := []struct{ label, val string }{
+				{"320kbps (Best)", "320K"},
+				{"256kbps (High)", "256K"},
+				{"192kbps (Standard)", "192K"},
+				{"128kbps (Low)", "128K"},
+			}
+			for i, q := range qualities {
+				fmt.Printf("%s│%s %s%d.%s %-40s %s│%s\n",
+					colorYellow, colorReset,
+					colorGreen, i+1, colorReset,
+					q.label,
+					colorYellow, colorReset)
+			}
+			fmt.Printf("%s└─────────────────────────────────────────────┘%s\n\n", colorYellow, colorReset)
+
+			qInput := readInput(fmt.Sprintf("%sChoose quality (1-%d) [default: 1]:%s ", colorCyan, len(qualities), colorReset))
+			qChoice, _ := strconv.Atoi(qInput)
+			if qChoice < 1 || qChoice > len(qualities) {
+				qChoice = 1
+			}
+			audioQuality = qualities[qChoice-1].val
+			fmt.Println()
+		}
 	}
 
-	spinner := NewSpinner("Fetching video information...")
-	spinner.Start()
-	time.Sleep(500 * time.Millisecond)
-	spinner.Stop(true)
+	if !quiet {
+		spinner := NewSpinner("Fetching video information...")
+		spinner.Start()
+		time.Sleep(500 * time.Millisecond)
+		spinner.Stop(true)
+	}
 
 	printStatus("info", "Starting audio download...")
-	fmt.Println()
+	if !quiet {
+		fmt.Println()
+	}
 
 	ffmpegDir := filepath.Dir(ffmpegPath)
 	
@@ -663,11 +686,17 @@ func audioDownload(ytdlpPath, ffmpegPath, workDir, url string) {
 			os.Remove(thumbFile)
 		}
 
-		dest := filepath.Base(audioFile)
-		moveFile(audioFile, dest)
+		destName := filepath.Base(audioFile)
+		destPath := destName
+		if outDir != "" {
+			destPath = filepath.Join(outDir, destName)
+		}
+		moveFile(audioFile, destPath)
 
-		fmt.Println()
-		printStatus("success", fmt.Sprintf("✨ Successfully downloaded: %s%s%s", colorBold, dest, colorReset))
+		if !quiet {
+			fmt.Println()
+		}
+		printStatus("success", fmt.Sprintf("✨ Successfully downloaded: %s%s%s", colorBold, destName, colorReset))
 	}
 }
 
@@ -691,9 +720,12 @@ func validateURL(urlStr string) error {
 	return nil
 }
 
-func videoDownload(ytdlpPath, ffmpegPath, workDir, url string) {
-	printBanner()
+func videoDownload(ytdlpPath, ffmpegPath, workDir, url, outDir string, quiet bool) {
+	if !quiet {
+		printBanner()
+	}
 
+	var format string
 	presets := []struct{ label, format string }{
 		{"Best Quality (Auto)", "bestvideo+bestaudio/best"},
 		{"1080p", "bestvideo[height<=1080]+bestaudio/best[height<=1080]"},
@@ -703,53 +735,58 @@ func videoDownload(ytdlpPath, ffmpegPath, workDir, url string) {
 		{"Custom Format (Advanced)", ""},
 	}
 
-	fmt.Printf("%s┌─ Quality Presets ───────────────────────────┐%s\n", colorYellow, colorReset)
-	for i, p := range presets {
-		fmt.Printf("%s│%s %s%d.%s %-40s %s│%s\n",
-			colorYellow, colorReset,
-			colorGreen, i+1, colorReset,
-			p.label,
-			colorYellow, colorReset)
-	}
-	fmt.Printf("%s└─────────────────────────────────────────────┘%s\n\n", colorYellow, colorReset)
-
-	input := readInput(fmt.Sprintf("%sChoose quality (1-6):%s ", colorCyan, colorReset))
-	var choice int
-	if input != "" {
-		choice, _ = strconv.Atoi(input)
-	}
-	fmt.Println()
-
 	ffmpegDir := filepath.Dir(ffmpegPath)
-	var format string
 
-	switch {
-	case choice > 0 && choice < len(presets):
-		format = presets[choice-1].format
-	case choice == len(presets):
-		spinner := NewSpinner("Fetching available formats...")
-		spinner.Start()
-		cmd := exec.Command(ytdlpPath, "-F", url)
-		cmd.Env = append(os.Environ(),
-			"PATH="+ffmpegDir+string(filepath.ListSeparator)+os.Getenv("PATH"))
-		output, err := cmd.CombinedOutput()
-		spinner.Stop(err == nil)
-		if err == nil {
-			fmt.Println(string(output))
+	if quiet {
+		format = presets[0].format
+	} else {
+		fmt.Printf("%s┌─ Quality Presets ───────────────────────────┐%s\n", colorYellow, colorReset)
+		for i, p := range presets {
+			fmt.Printf("%s│%s %s%d.%s %-40s %s│%s\n",
+				colorYellow, colorReset,
+				colorGreen, i+1, colorReset,
+				p.label,
+				colorYellow, colorReset)
 		}
-		format = readInput(fmt.Sprintf("\n%sEnter format ID or combination (e.g., 137+140):%s ", colorCyan, colorReset))
+		fmt.Printf("%s└─────────────────────────────────────────────┘%s\n\n", colorYellow, colorReset)
+
+		input := readInput(fmt.Sprintf("%sChoose quality (1-6):%s ", colorCyan, colorReset))
+		var choice int
+		if input != "" {
+			choice, _ = strconv.Atoi(input)
+		}
 		fmt.Println()
-		if format == "" {
-			printStatus("warning", "No format entered, using best quality")
+
+		switch {
+		case choice > 0 && choice < len(presets):
+			format = presets[choice-1].format
+		case choice == len(presets):
+			spinner := NewSpinner("Fetching available formats...")
+			spinner.Start()
+			cmd := exec.Command(ytdlpPath, "-F", url)
+			cmd.Env = append(os.Environ(),
+				"PATH="+ffmpegDir+string(filepath.ListSeparator)+os.Getenv("PATH"))
+			output, err := cmd.CombinedOutput()
+			spinner.Stop(err == nil)
+			if err == nil {
+				fmt.Println(string(output))
+			}
+			format = readInput(fmt.Sprintf("\n%sEnter format ID or combination (e.g., 137+140):%s ", colorCyan, colorReset))
+			fmt.Println()
+			if format == "" {
+				printStatus("warning", "No format entered, using best quality")
+				format = "bestvideo+bestaudio/best"
+			}
+		default:
+			printStatus("warning", "Invalid choice, using best quality")
 			format = "bestvideo+bestaudio/best"
 		}
-	default:
-		printStatus("warning", "Invalid choice, using best quality")
-		format = "bestvideo+bestaudio/best"
 	}
 
 	printStatus("info", "Starting video download...")
-	fmt.Println()
+	if !quiet {
+		fmt.Println()
+	}
 
 	runYTDLPWithProgress(ytdlpPath, ffmpegDir, "Downloading video",
 		"-f", format,
@@ -770,10 +807,16 @@ func videoDownload(ytdlpPath, ffmpegPath, workDir, url string) {
 			continue
 		}
 
-		dest := filepath.Base(file)
-		moveFile(file, dest)
-		fmt.Println()
-		printStatus("success", fmt.Sprintf("✨ Successfully downloaded: %s%s%s", colorBold, dest, colorReset))
+		destName := filepath.Base(file)
+		destPath := destName
+		if outDir != "" {
+			destPath = filepath.Join(outDir, destName)
+		}
+		moveFile(file, destPath)
+		if !quiet {
+			fmt.Println()
+		}
+		printStatus("success", fmt.Sprintf("✨ Successfully downloaded: %s%s%s", colorBold, destName, colorReset))
 		downloadedCount++
 	}
 
@@ -795,19 +838,35 @@ func main() {
 		os.Exit(1)
 	}()
 
-	if len(os.Args) == 2 && os.Args[1] == "--about" {
+	musicMode := flag.Bool("m", false, "Music/audio mode")
+	videoMode := flag.Bool("v", false, "Video mode")
+	outDir := flag.String("o", "", "Output directory")
+	quiet := flag.Bool("q", false, "Quiet mode")
+	about := flag.Bool("about", false, "Show author info")
+
+	flag.Usage = usage
+	flag.Parse()
+
+	if *about {
 		fmt.Printf("\n%s%s%s\n", colorCyan, authorTag, colorReset)
 		fmt.Printf("\n%sGitHub:%s %shttps://github.com/shahil-sk/streamline%s\n\n",
 			colorYellow, colorReset, colorBlue, colorReset)
 		os.Exit(0)
 	}
-	if len(os.Args) < 3 {
+
+	if (!*musicMode && !*videoMode) || flag.NArg() < 1 {
 		usage()
 	}
 
-	urlArg := strings.TrimSpace(os.Args[2])
+	urlArg := strings.TrimSpace(flag.Arg(0))
 	if err := validateURL(urlArg); err != nil {
 		exitWithError(fmt.Sprintf("Invalid URL: %v", err))
+	}
+
+	if *outDir != "" {
+		if err := os.MkdirAll(*outDir, 0755); err != nil {
+			exitWithError(fmt.Sprintf("Failed to create output directory: %v", err))
+		}
 	}
 
 	ytdlpPath, ffmpegPath, cleanup := resolveBinaries()
@@ -819,12 +878,9 @@ func main() {
 	check(err)
 	registerCleanup(func() { os.RemoveAll(workDir) })
 
-	switch os.Args[1] {
-	case "-m":
-		audioDownload(ytdlpPath, ffmpegPath, workDir, os.Args[2])
-	case "-v":
-		videoDownload(ytdlpPath, ffmpegPath, workDir, os.Args[2])
-	default:
-		usage()
+	if *musicMode {
+		audioDownload(ytdlpPath, ffmpegPath, workDir, urlArg, *outDir, *quiet)
+	} else if *videoMode {
+		videoDownload(ytdlpPath, ffmpegPath, workDir, urlArg, *outDir, *quiet)
 	}
 }
