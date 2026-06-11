@@ -331,6 +331,8 @@ func usage() {
   %s-v%s        Video mode
   %s-o%s        Output directory (default: current directory)
   %s-q%s        Quiet mode (skip prompts, use best quality)
+  %s-s%s        Remove sponsor segments (SponsorBlock)
+  %s--subs%s    Embed subtitles (video only)
   %s--about%s   Author information
 
 `,
@@ -338,6 +340,8 @@ func usage() {
 		colorYellow, colorReset,
 		colorYellow, colorReset,
 		colorYellow, colorReset,
+		colorGreen, colorReset,
+		colorGreen, colorReset,
 		colorGreen, colorReset,
 		colorGreen, colorReset,
 		colorGreen, colorReset,
@@ -585,7 +589,7 @@ func moveFile(src, dst string) {
 
 // ─── Download Commands ───────────────────────────────────────────────────────
 
-func audioDownload(ytdlpPath, ffmpegPath, workDir, url, outDir string, quiet bool) {
+func audioDownload(ytdlpPath, ffmpegPath, workDir, url, outDir string, quiet, sponsorBlock bool) {
 	if !quiet {
 		printBanner()
 	}
@@ -672,6 +676,9 @@ func audioDownload(ytdlpPath, ffmpegPath, workDir, url, outDir string, quiet boo
 	if audioQuality != "" {
 		args = append(args, "--audio-quality", audioQuality)
 	}
+	if sponsorBlock {
+		args = append(args, "--sponsorblock-remove", "all")
+	}
 
 	runYTDLPWithProgress(ytdlpPath, ffmpegDir, "Downloading audio", args...)
 
@@ -739,7 +746,7 @@ func validateURL(urlStr string) error {
 	return nil
 }
 
-func videoDownload(ytdlpPath, ffmpegPath, workDir, url, outDir string, quiet bool) {
+func videoDownload(ytdlpPath, ffmpegPath, workDir, url, outDir string, quiet, sponsorBlock, subtitles bool) {
 	if !quiet {
 		printBanner()
 	}
@@ -808,10 +815,19 @@ func videoDownload(ytdlpPath, ffmpegPath, workDir, url, outDir string, quiet boo
 		fmt.Println()
 	}
 
-	runYTDLPWithProgress(ytdlpPath, ffmpegDir, "Downloading video",
+	args := []string{
 		"-f", format,
 		"-o", filepath.Join(workDir, "%(title)s.%(ext)s"),
-		url)
+	}
+	if sponsorBlock {
+		args = append(args, "--sponsorblock-remove", "all")
+	}
+	if subtitles {
+		args = append(args, "--write-auto-subs", "--write-subs", "--embed-subs", "--sub-langs", "all,-live_chat")
+	}
+	args = append(args, url)
+
+	runYTDLPWithProgress(ytdlpPath, ffmpegDir, "Downloading video", args...)
 
 	files, err := filepath.Glob(filepath.Join(workDir, "*"))
 	check(err)
@@ -862,6 +878,8 @@ func main() {
 	videoMode := flag.Bool("v", false, "Video mode")
 	outDir := flag.String("o", "", "Output directory")
 	quiet := flag.Bool("q", false, "Quiet mode")
+	sponsorBlock := flag.Bool("s", false, "Remove sponsor segments")
+	subtitles := flag.Bool("subs", false, "Embed subtitles")
 	about := flag.Bool("about", false, "Show author info")
 
 	flag.Usage = usage
@@ -899,8 +917,8 @@ func main() {
 	registerCleanup(func() { os.RemoveAll(workDir) })
 
 	if *musicMode {
-		audioDownload(ytdlpPath, ffmpegPath, workDir, urlArg, *outDir, *quiet)
+		audioDownload(ytdlpPath, ffmpegPath, workDir, urlArg, *outDir, *quiet, *sponsorBlock)
 	} else if *videoMode {
-		videoDownload(ytdlpPath, ffmpegPath, workDir, urlArg, *outDir, *quiet)
+		videoDownload(ytdlpPath, ffmpegPath, workDir, urlArg, *outDir, *quiet, *sponsorBlock, *subtitles)
 	}
 }
