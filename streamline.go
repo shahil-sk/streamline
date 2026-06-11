@@ -594,6 +594,26 @@ func audioDownload(ytdlpPath, ffmpegPath, workDir, url string) {
 	}
 }
 
+func readInput(prompt string) string {
+	fmt.Print(prompt)
+	scanner := bufio.NewScanner(os.Stdin)
+	if scanner.Scan() {
+		return strings.TrimSpace(scanner.Text())
+	}
+	return ""
+}
+
+func validateURL(urlStr string) error {
+	urlStr = strings.TrimSpace(urlStr)
+	if urlStr == "" {
+		return fmt.Errorf("empty URL")
+	}
+	if !strings.HasPrefix(urlStr, "http://") && !strings.HasPrefix(urlStr, "https://") {
+		return fmt.Errorf("must start with http:// or https://")
+	}
+	return nil
+}
+
 func videoDownload(ytdlpPath, ffmpegPath, workDir, url string) {
 	printBanner()
 
@@ -616,9 +636,11 @@ func videoDownload(ytdlpPath, ffmpegPath, workDir, url string) {
 	}
 	fmt.Printf("%s└─────────────────────────────────────────────┘%s\n\n", colorYellow, colorReset)
 
-	fmt.Printf("%sChoose quality (1-6):%s ", colorCyan, colorReset)
+	input := readInput(fmt.Sprintf("%sChoose quality (1-6):%s ", colorCyan, colorReset))
 	var choice int
-	fmt.Scanln(&choice)
+	if input != "" {
+		choice, _ = strconv.Atoi(input)
+	}
 	fmt.Println()
 
 	ffmpegDir := filepath.Dir(ffmpegPath)
@@ -638,9 +660,12 @@ func videoDownload(ytdlpPath, ffmpegPath, workDir, url string) {
 		if err == nil {
 			fmt.Println(string(output))
 		}
-		fmt.Printf("\n%sEnter format ID or combination (e.g., 137+140):%s ", colorCyan, colorReset)
-		fmt.Scanln(&format)
+		format = readInput(fmt.Sprintf("\n%sEnter format ID or combination (e.g., 137+140):%s ", colorCyan, colorReset))
 		fmt.Println()
+		if format == "" {
+			printStatus("warning", "No format entered, using best quality")
+			format = "bestvideo+bestaudio/best"
+		}
 	default:
 		printStatus("warning", "Invalid choice, using best quality")
 		format = "bestvideo+bestaudio/best"
@@ -701,6 +726,11 @@ func main() {
 	}
 	if len(os.Args) < 3 {
 		usage()
+	}
+
+	urlArg := strings.TrimSpace(os.Args[2])
+	if err := validateURL(urlArg); err != nil {
+		exitWithError(fmt.Sprintf("Invalid URL: %v", err))
 	}
 
 	ytdlpPath, ffmpegPath, cleanup := resolveBinaries()
