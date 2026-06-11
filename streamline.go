@@ -575,7 +575,7 @@ func moveFile(src, dst string) error {
 
 // ─── Download Commands ───────────────────────────────────────────────────────
 
-func audioDownload(ytdlpPath, ffmpegPath, workDir, url, outDir string, quiet, sponsorBlock bool) {
+func audioDownload(ytdlpPath, ffmpegPath, workDir, url, outDir, proxyURL string, quiet, sponsorBlock bool) {
 	if !quiet {
 		printBanner()
 	}
@@ -665,6 +665,9 @@ func audioDownload(ytdlpPath, ffmpegPath, workDir, url, outDir string, quiet, sp
 	if sponsorBlock {
 		args = append(args, "--sponsorblock-remove", "all")
 	}
+	if proxyURL != "" {
+		args = append(args, "--proxy", proxyURL)
+	}
 
 	runYTDLPWithProgress(ytdlpPath, ffmpegDir, "Downloading audio", args...)
 
@@ -736,7 +739,7 @@ func validateURL(urlStr string) error {
 	return nil
 }
 
-func videoDownload(ytdlpPath, ffmpegPath, workDir, url, outDir string, quiet, sponsorBlock, subtitles bool) {
+func videoDownload(ytdlpPath, ffmpegPath, workDir, url, outDir, proxyURL string, quiet, sponsorBlock, subtitles bool) {
 	if !quiet {
 		printBanner()
 	}
@@ -779,7 +782,11 @@ func videoDownload(ytdlpPath, ffmpegPath, workDir, url, outDir string, quiet, sp
 		case choice == len(presets):
 			spinner := NewSpinner("Fetching available formats...")
 			spinner.Start()
-			cmd := exec.Command(ytdlpPath, "-F", url)
+			args := []string{"-F", url}
+			if proxyURL != "" {
+				args = append([]string{"--proxy", proxyURL}, args...)
+			}
+			cmd := exec.Command(ytdlpPath, args...)
 			cmd.Env = append(os.Environ(),
 				"PATH="+ffmpegDir+string(filepath.ListSeparator)+os.Getenv("PATH"))
 			output, err := cmd.CombinedOutput()
@@ -814,6 +821,9 @@ func videoDownload(ytdlpPath, ffmpegPath, workDir, url, outDir string, quiet, sp
 	}
 	if subtitles {
 		args = append(args, "--write-auto-subs", "--write-subs", "--embed-subs", "--sub-langs", "all,-live_chat")
+	}
+	if proxyURL != "" {
+		args = append(args, "--proxy", proxyURL)
 	}
 	args = append(args, url)
 
@@ -875,6 +885,7 @@ func main() {
 	sponsorBlock := flag.Bool("s", false, "Remove sponsor segments")
 	subtitles := flag.Bool("subs", false, "Embed subtitles")
 	about := flag.Bool("about", false, "Show author info")
+	dnsServer := flag.String("dns", "", "Use custom DNS server (bypasses system DNS)")
 
 	flag.Usage = usage
 	flag.Parse()
@@ -910,9 +921,17 @@ func main() {
 	check(err)
 	registerCleanup(func() { os.RemoveAll(workDir) })
 
+	var proxyURL string
+	if *dnsServer != "" {
+		proxyURL, err = startDNSProxy(*dnsServer)
+		if err != nil {
+			exitWithError(fmt.Sprintf("Failed to start DNS proxy: %v", err))
+		}
+	}
+
 	if *musicMode {
-		audioDownload(ytdlpPath, ffmpegPath, workDir, urlArg, *outDir, *quiet, *sponsorBlock)
+		audioDownload(ytdlpPath, ffmpegPath, workDir, urlArg, *outDir, proxyURL, *quiet, *sponsorBlock)
 	} else if *videoMode {
-		videoDownload(ytdlpPath, ffmpegPath, workDir, urlArg, *outDir, *quiet, *sponsorBlock, *subtitles)
+		videoDownload(ytdlpPath, ffmpegPath, workDir, urlArg, *outDir, proxyURL, *quiet, *sponsorBlock, *subtitles)
 	}
 }
