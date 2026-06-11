@@ -8,11 +8,13 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"os/signal"
 	"path/filepath"
 	"regexp"
 	"runtime"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 )
 
@@ -51,9 +53,37 @@ func isTerminal() bool {
 	return err == nil && (fi.Mode()&os.ModeCharDevice) != 0
 }
 
+var (
+	cleanups    []func()
+	cleanupsRun bool
+)
+
+func registerCleanup(fn func()) {
+	if fn != nil {
+		cleanups = append(cleanups, fn)
+	}
+}
+
+func runCleanups() {
+	if cleanupsRun {
+		return
+	}
+	cleanupsRun = true
+	for i := len(cleanups) - 1; i >= 0; i-- {
+		cleanups[i]()
+	}
+}
+
+func exitWithError(msg string) {
+	printStatus("error", msg)
+	runCleanups()
+	os.Exit(1)
+}
+
 func check(err error) {
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "\n%s✗ Error:%s %v\n", colorRed, colorReset, err)
+		runCleanups()
 		os.Exit(1)
 	}
 }
@@ -123,6 +153,7 @@ func missingDepError(name, installURL string) {
 		colorYellow, colorReset,
 		colorBlue, releasesURL, colorReset,
 	)
+	runCleanups()
 	os.Exit(1)
 }
 
@@ -451,6 +482,7 @@ func runYTDLPWithProgress(ytdlpPath, ffmpegDir, description string, args ...stri
 	}
 	if err := cmd.Wait(); err != nil {
 		fmt.Fprintf(os.Stderr, "%s✗ Download failed:%s %v\n", colorRed, colorReset, err)
+		runCleanups()
 		os.Exit(1)
 	}
 }
@@ -534,21 +566,32 @@ func audioDownload(ytdlpPath, ffmpegPath, workDir, url string) {
 	mp3Files, err := filepath.Glob(filepath.Join(workDir, "*.mp3"))
 	check(err)
 	if len(mp3Files) == 0 {
-		printStatus("error", "No MP3 file found")
-		os.Exit(1)
+		exitWithError("No MP3 file found")
 	}
 
-	mp3File := mp3Files[0]
-	if thumbFiles, _ := filepath.Glob(filepath.Join(workDir, "*.jpg")); len(thumbFiles) > 0 {
-		embedThumbnail(ffmpegPath, mp3File, thumbFiles[0])
-		os.Remove(thumbFiles[0])
+	for _, mp3File := range mp3Files {
+		baseWithoutExt := strings.TrimSuffix(mp3File, ".mp3")
+		
+		thumbExtensions := []string{".jpg", ".jpeg", ".png", ".webp"}
+		var thumbFile string
+		for _, ext := range thumbExtensions {
+			p := baseWithoutExt + ext
+			if _, err := os.Stat(p); err == nil {
+				thumbFile = p
+				break
+			}
+		}
+		if thumbFile != "" {
+			embedThumbnail(ffmpegPath, mp3File, thumbFile)
+			os.Remove(thumbFile)
+		}
+
+		dest := filepath.Base(mp3File)
+		moveFile(mp3File, dest)
+
+		fmt.Println()
+		printStatus("success", fmt.Sprintf("✨ Successfully downloaded: %s%s%s", colorBold, dest, colorReset))
 	}
-
-	dest := filepath.Base(mp3File)
-	moveFile(mp3File, dest)
-
-	fmt.Println()
-	printStatus("success", fmt.Sprintf("✨ Successfully downloaded: %s%s%s", colorBold, dest, colorReset))
 }
 
 func videoDownload(ytdlpPath, ffmpegPath, workDir, url string) {
@@ -611,17 +654,45 @@ func videoDownload(ytdlpPath, ffmpegPath, workDir, url string) {
 		"-o", filepath.Join(workDir, "%(title)s.%(ext)s"),
 		url)
 
-	if mp4Files, _ := filepath.Glob(filepath.Join(workDir, "*.mp4")); len(mp4Files) > 0 {
-		dest := filepath.Base(mp4Files[0])
-		moveFile(mp4Files[0], dest)
+	files, err := filepath.Glob(filepath.Join(workDir, "*"))
+	check(err)
+
+	var downloadedCount int
+	for _, file := range files {
+		ext := strings.ToLower(filepath.Ext(file))
+		if ext == ".part" || ext == ".ytdl" {
+			continue
+		}
+		fi, err := os.Stat(file)
+		if err != nil || fi.IsDir() {
+			continue
+		}
+
+		dest := filepath.Base(file)
+		moveFile(file, dest)
 		fmt.Println()
 		printStatus("success", fmt.Sprintf("✨ Successfully downloaded: %s%s%s", colorBold, dest, colorReset))
+		downloadedCount++
+	}
+
+	if downloadedCount == 0 {
+		exitWithError("No video files downloaded")
 	}
 }
 
 // ─── Entry Point ─────────────────────────────────────────────────────────────
 
 func main() {
+	// Setup signal handling for clean shutdown
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
+	go func() {
+		<-sigChan
+		fmt.Fprintf(os.Stderr, "\n\n%s✗ Interrupted, cleaning up...%s\n", colorRed, colorReset)
+		runCleanups()
+		os.Exit(1)
+	}()
+
 	if len(os.Args) == 2 && os.Args[1] == "--about" {
 		fmt.Printf("\n%s%s%s\n", colorCyan, authorTag, colorReset)
 		fmt.Printf("\n%sGitHub:%s %shttps://github.com/shahil-sk/streamline%s\n\n",
@@ -633,12 +704,13 @@ func main() {
 	}
 
 	ytdlpPath, ffmpegPath, cleanup := resolveBinaries()
-	defer cleanup()
+	registerCleanup(cleanup)
+	defer runCleanups()
 
 	// Isolated work dir prevents glob from accidentally matching files in the user's CWD
 	workDir, err := os.MkdirTemp("", "streamline-work")
 	check(err)
-	defer os.RemoveAll(workDir)
+	registerCleanup(func() { os.RemoveAll(workDir) })
 
 	switch os.Args[1] {
 	case "-m":

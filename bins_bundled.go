@@ -22,6 +22,7 @@ func resolveBinaries() (ytdlpPath, ffmpegPath string, cleanup func()) {
 	tempDir, err := os.MkdirTemp("", "streamline-bins")
 	check(err)
 	cleanup = func() { os.RemoveAll(tempDir) }
+	registerCleanup(cleanup)
 
 	// Windows does not honour the Unix execute bit; 0666 is sufficient there
 	perm := os.FileMode(0755)
