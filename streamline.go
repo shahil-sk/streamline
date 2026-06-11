@@ -488,34 +488,56 @@ func runYTDLPWithProgress(ytdlpPath, ffmpegDir, description string, args ...stri
 }
 
 // embedThumbnail crops the thumbnail to a square, scales it to 500x500,
-// and embeds it into the MP3 as ID3v2 cover art.
-func embedThumbnail(ffmpegPath, mp3File, thumbFile string) {
+// and embeds it into the audio file as cover art.
+func embedThumbnail(ffmpegPath, audioFile, thumbFile string) {
+	ext := strings.ToLower(filepath.Ext(audioFile))
+	if ext != ".mp3" && ext != ".m4a" && ext != ".flac" {
+		return // Manual square embed not strictly supported for this format
+	}
+
 	printStatus("info", "Cropping thumbnail to square and embedding...")
 	spinner := NewSpinner("Embedding album art (500×500)...")
 	spinner.Start()
 
-	tempFile := mp3File + ".temp"
-	cmd := exec.Command(ffmpegPath,
-		"-i", mp3File,
-		"-i", thumbFile,
-		"-map", "0:0",
-		"-map", "1:0",
-		"-c:a", "copy",
-		"-c:v", "mjpeg",
-		"-vf", "crop=min(iw\\,ih):min(iw\\,ih),scale=500:500",
-		"-q:v", "2",
-		"-id3v2_version", "3",
-		"-metadata:s:v", "title=Album cover",
-		"-metadata:s:v", "comment=Cover (front)",
-		"-y",
-		"-loglevel", "error",
-		"-f", "mp3",
-		tempFile)
+	tempFile := audioFile + ".temp"
+	var args []string
 
+	if ext == ".mp3" {
+		args = []string{
+			"-i", audioFile, "-i", thumbFile,
+			"-map", "0:0", "-map", "1:0",
+			"-c:a", "copy", "-c:v", "mjpeg",
+			"-vf", "crop=min(iw\\,ih):min(iw\\,ih),scale=500:500",
+			"-q:v", "2", "-id3v2_version", "3",
+			"-metadata:s:v", "title=Album cover",
+			"-metadata:s:v", "comment=Cover (front)",
+			"-y", "-loglevel", "error", "-f", "mp3", tempFile,
+		}
+	} else if ext == ".m4a" {
+		args = []string{
+			"-i", audioFile, "-i", thumbFile,
+			"-map", "0:a", "-map", "1:v",
+			"-c:a", "copy", "-c:v", "mjpeg",
+			"-vf", "crop=min(iw\\,ih):min(iw\\,ih),scale=500:500",
+			"-q:v", "2", "-disposition:v", "attached_pic",
+			"-y", "-loglevel", "error", "-f", "ipod", tempFile,
+		}
+	} else if ext == ".flac" {
+		args = []string{
+			"-i", audioFile, "-i", thumbFile,
+			"-map", "0:a", "-map", "1:v",
+			"-c:a", "copy", "-c:v", "mjpeg",
+			"-vf", "crop=min(iw\\,ih):min(iw\\,ih),scale=500:500",
+			"-q:v", "2", "-disposition:v", "attached_pic",
+			"-y", "-loglevel", "error", "-f", "flac", tempFile,
+		}
+	}
+
+	cmd := exec.Command(ffmpegPath, args...)
 	err := cmd.Run()
 	spinner.Stop(err == nil)
 	check(err)
-	check(os.Rename(tempFile, mp3File))
+	check(os.Rename(tempFile, audioFile))
 }
 
 // copyFile copies src to dst byte-for-byte (cross-device fallback for os.Rename)
@@ -542,6 +564,53 @@ func moveFile(src, dst string) {
 
 func audioDownload(ytdlpPath, ffmpegPath, workDir, url string) {
 	printBanner()
+
+	fmt.Printf("%s┌─ Audio Format ──────────────────────────────┐%s\n", colorYellow, colorReset)
+	formats := []string{"mp3", "m4a", "flac", "wav", "opus"}
+	for i, f := range formats {
+		fmt.Printf("%s│%s %s%d.%s %-40s %s│%s\n",
+			colorYellow, colorReset,
+			colorGreen, i+1, colorReset,
+			strings.ToUpper(f),
+			colorYellow, colorReset)
+	}
+	fmt.Printf("%s└─────────────────────────────────────────────┘%s\n\n", colorYellow, colorReset)
+
+	input := readInput(fmt.Sprintf("%sChoose format (1-%d) [default: 1]:%s ", colorCyan, len(formats), colorReset))
+	choice, _ := strconv.Atoi(input)
+	if choice < 1 || choice > len(formats) {
+		choice = 1
+	}
+	audioFmt := formats[choice-1]
+	fmt.Println()
+
+	var audioQuality string
+	if audioFmt == "mp3" || audioFmt == "m4a" || audioFmt == "opus" {
+		fmt.Printf("%s┌─ Audio Quality ─────────────────────────────┐%s\n", colorYellow, colorReset)
+		qualities := []struct{ label, val string }{
+			{"320kbps (Best)", "320K"},
+			{"256kbps (High)", "256K"},
+			{"192kbps (Standard)", "192K"},
+			{"128kbps (Low)", "128K"},
+		}
+		for i, q := range qualities {
+			fmt.Printf("%s│%s %s%d.%s %-40s %s│%s\n",
+				colorYellow, colorReset,
+				colorGreen, i+1, colorReset,
+				q.label,
+				colorYellow, colorReset)
+		}
+		fmt.Printf("%s└─────────────────────────────────────────────┘%s\n\n", colorYellow, colorReset)
+
+		qInput := readInput(fmt.Sprintf("%sChoose quality (1-%d) [default: 1]:%s ", colorCyan, len(qualities), colorReset))
+		qChoice, _ := strconv.Atoi(qInput)
+		if qChoice < 1 || qChoice > len(qualities) {
+			qChoice = 1
+		}
+		audioQuality = qualities[qChoice-1].val
+		fmt.Println()
+	}
+
 	spinner := NewSpinner("Fetching video information...")
 	spinner.Start()
 	time.Sleep(500 * time.Millisecond)
@@ -551,26 +620,33 @@ func audioDownload(ytdlpPath, ffmpegPath, workDir, url string) {
 	fmt.Println()
 
 	ffmpegDir := filepath.Dir(ffmpegPath)
-	runYTDLPWithProgress(ytdlpPath, ffmpegDir, "Downloading audio",
+	
+	args := []string{
 		url,
 		"-f", "bestaudio",
 		"--extract-audio",
-		"--audio-format", "mp3",
+		"--audio-format", audioFmt,
 		"--convert-thumbnails", "jpg",
 		"--embed-metadata",
 		"--embed-chapters",
 		"--add-metadata",
 		"-o", filepath.Join(workDir, "%(title)s.%(ext)s"),
-		"--write-thumbnail")
-
-	mp3Files, err := filepath.Glob(filepath.Join(workDir, "*.mp3"))
-	check(err)
-	if len(mp3Files) == 0 {
-		exitWithError("No MP3 file found")
+		"--write-thumbnail",
+	}
+	if audioQuality != "" {
+		args = append(args, "--audio-quality", audioQuality)
 	}
 
-	for _, mp3File := range mp3Files {
-		baseWithoutExt := strings.TrimSuffix(mp3File, ".mp3")
+	runYTDLPWithProgress(ytdlpPath, ffmpegDir, "Downloading audio", args...)
+
+	audioFiles, err := filepath.Glob(filepath.Join(workDir, "*."+audioFmt))
+	check(err)
+	if len(audioFiles) == 0 {
+		exitWithError("No audio file found")
+	}
+
+	for _, audioFile := range audioFiles {
+		baseWithoutExt := strings.TrimSuffix(audioFile, "."+audioFmt)
 		
 		thumbExtensions := []string{".jpg", ".jpeg", ".png", ".webp"}
 		var thumbFile string
@@ -582,12 +658,12 @@ func audioDownload(ytdlpPath, ffmpegPath, workDir, url string) {
 			}
 		}
 		if thumbFile != "" {
-			embedThumbnail(ffmpegPath, mp3File, thumbFile)
+			embedThumbnail(ffmpegPath, audioFile, thumbFile)
 			os.Remove(thumbFile)
 		}
 
-		dest := filepath.Base(mp3File)
-		moveFile(mp3File, dest)
+		dest := filepath.Base(audioFile)
+		moveFile(audioFile, dest)
 
 		fmt.Println()
 		printStatus("success", fmt.Sprintf("✨ Successfully downloaded: %s%s%s", colorBold, dest, colorReset))
