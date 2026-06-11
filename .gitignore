@@ -38,3 +38,7 @@ code-review-graph.json
 test.sh
 test_output/
 streamline.test
+
+# Bundled binaries
+yt-dlp
+ffmpeg
