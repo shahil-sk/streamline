@@ -24,6 +24,7 @@
 
 - **Multi-Platform Support**: Works flawlessly with **1000+ platforms** including YouTube, SoundCloud, Instagram, TikTok, and X.
 - **Audio Extraction**: Converts media to high-quality formats (MP3, FLAC, M4A, WAV, OPUS).
+- **Playlist Item Selector**: Pass `--select` to interactively select specific items from a playlist using a TUI checkbox menu.
 - **Batch & Concurrent Downloading**: Pass multiple URLs or a `.txt` file (`--batch`) and download them concurrently (`-j 5`).
 - **Timestamp Clipping**: Download only a specific section of a video/audio using `--start` and `--end` (e.g. `--start 01:00 --end 02:30`).
 - **Rich Metadata**: Automatically embeds ID3 tags, artist metadata, and cover art into the downloaded files.
@@ -47,6 +48,12 @@ streamline -m <url>
 
 ```bash
 streamline -v <url>
+```
+
+### Playlist Item Selector (TUI)
+
+```bash
+streamline -m --select <playlist-url>
 ```
 
 ### Batch & Concurrent Downloads
@@ -83,6 +90,7 @@ streamline -v --dns https://dns.google/resolve <url>
   -q        Quiet mode (skip prompts, use best quality)
   -s        Remove sponsor segments (SponsorBlock)
   --subs    Embed subtitles (video only)
+  --select  Interactive playlist item selector (TUI)
   --start   Start timestamp for clipping (e.g. 01:00)
   --end     End timestamp for clipping (e.g. 02:30)
   --batch   File containing URLs to download

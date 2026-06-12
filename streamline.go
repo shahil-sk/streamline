@@ -316,6 +316,7 @@ func usage() {
   %s-q%s        Quiet mode (skip prompts, use best quality)
   %s-s%s        Remove sponsor segments (SponsorBlock)
   %s--subs%s    Embed subtitles (video only)
+  %s--select%s  Interactive playlist item selector (TUI)
   %s--start%s   Start timestamp for clipping (e.g. 01:00)
   %s--end%s     End timestamp for clipping (e.g. 02:30)
   %s--batch%s   File containing URLs to download
@@ -328,6 +329,7 @@ func usage() {
 		colorYellow, colorReset,
 		colorYellow, colorReset,
 		colorYellow, colorReset,
+		colorGreen, colorReset,
 		colorGreen, colorReset,
 		colorGreen, colorReset,
 		colorGreen, colorReset,
@@ -591,7 +593,7 @@ func moveFile(src, dst string) error {
 
 // ─── Download Commands ───────────────────────────────────────────────────────
 
-func audioDownload(ytdlpPath, ffmpegPath, workDir, url, outDir, proxyURL string, quiet, sponsorBlock bool, start, end string) {
+func audioDownload(ytdlpPath, ffmpegPath, workDir, url, outDir, proxyURL string, quiet, sponsorBlock bool, start, end, playlistItems string) {
 	if !quiet {
 		printBanner()
 	}
@@ -691,6 +693,9 @@ func audioDownload(ytdlpPath, ffmpegPath, workDir, url, outDir, proxyURL string,
 		// We must force re-encoding for precise cuts
 		args = append(args, "--force-keyframes-at-cuts")
 	}
+	if playlistItems != "" {
+		args = append(args, "--playlist-items", playlistItems)
+	}
 
 	runYTDLPWithProgress(ytdlpPath, ffmpegDir, "Downloading audio", args...)
 
@@ -762,7 +767,7 @@ func validateURL(urlStr string) error {
 	return nil
 }
 
-func videoDownload(ytdlpPath, ffmpegPath, workDir, url, outDir, proxyURL string, quiet, sponsorBlock, subtitles bool, start, end string) {
+func videoDownload(ytdlpPath, ffmpegPath, workDir, url, outDir, proxyURL string, quiet, sponsorBlock, subtitles bool, start, end, playlistItems string) {
 	if !quiet {
 		printBanner()
 	}
@@ -854,6 +859,9 @@ func videoDownload(ytdlpPath, ffmpegPath, workDir, url, outDir, proxyURL string,
 		args = append(args, "--download-sections", fmt.Sprintf("*%s-%s", start, end))
 		args = append(args, "--force-keyframes-at-cuts")
 	}
+	if playlistItems != "" {
+		args = append(args, "--playlist-items", playlistItems)
+	}
 	args = append(args, url)
 
 	runYTDLPWithProgress(ytdlpPath, ffmpegDir, "Downloading video", args...)
@@ -913,6 +921,7 @@ func main() {
 	quiet := flag.Bool("q", false, "Quiet mode")
 	sponsorBlock := flag.Bool("s", false, "Remove sponsor segments")
 	subtitles := flag.Bool("subs", false, "Embed subtitles")
+	selectItems := flag.Bool("select", false, "Interactive playlist item selector")
 	about := flag.Bool("about", false, "Show author info")
 	dnsServer := flag.String("dns", "", "Use custom DNS server (bypasses system DNS)")
 	start := flag.String("start", "", "Start timestamp for clipping (e.g. 01:00)")
@@ -994,10 +1003,16 @@ func main() {
 			if len(urls) > 1 {
 				fmt.Printf("\n%s[%d/%d] Processing: %s%s\n", colorCyan, index+1, len(urls), rawUrl, colorReset)
 			}
+			
+			var plItems string
+			if *selectItems && !*quiet {
+				plItems = selectPlaylistItems(ytdlpPath, rawUrl, proxyURL)
+			}
+
 			if *musicMode {
-				audioDownload(ytdlpPath, ffmpegPath, workDir, rawUrl, *outDir, proxyURL, *quiet || len(urls) > 1, *sponsorBlock, *start, *end)
+				audioDownload(ytdlpPath, ffmpegPath, workDir, rawUrl, *outDir, proxyURL, *quiet || len(urls) > 1, *sponsorBlock, *start, *end, plItems)
 			} else if *videoMode {
-				videoDownload(ytdlpPath, ffmpegPath, workDir, rawUrl, *outDir, proxyURL, *quiet || len(urls) > 1, *sponsorBlock, *subtitles, *start, *end)
+				videoDownload(ytdlpPath, ffmpegPath, workDir, rawUrl, *outDir, proxyURL, *quiet || len(urls) > 1, *sponsorBlock, *subtitles, *start, *end, plItems)
 			}
 			if len(urls) > 1 {
 				fmt.Printf("%s[%d/%d] Completed: %s%s\n", colorGreen, index+1, len(urls), rawUrl, colorReset)
