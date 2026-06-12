@@ -16,11 +16,11 @@
 
 <br/>
 
-## 🚀 Overview
+##  Overview
 
 **Streamline** provides an interactive and highly optimized CLI experience for downloading high-quality audio and video. It wraps industry-standard tools into a beautifully simple interface, while adding powerful custom features like **native DNS-over-HTTPS (DoH)** to bypass restrictive corporate/school firewalls.
 
-## ✨ Features
+##  Features
 
 - **Multi-Platform Support**: Works flawlessly with **YouTube**, **SoundCloud**, and **Instagram**.
 - **Audio Extraction**: Converts media to high-quality formats (MP3, FLAC, M4A, WAV, OPUS).
