@@ -431,29 +431,32 @@ func runYTDLPWithProgress(ytdlpPath, ffmpegDir, description string, quiet bool, 
 		}
 
 		if !strings.Contains(line, "[download]") {
-			if strings.Contains(line, "Merging formats") {
+			if strings.Contains(line, "Merging formats") || 
+			   strings.Contains(line, "[ExtractAudio]") || 
+			   strings.Contains(line, "[SponsorBlock]") || 
+			   strings.Contains(line, "[Metadata]") || 
+			   strings.Contains(line, "[ModifyChapters]") ||
+			   strings.Contains(line, "[Fixup") {
+				
 				if progressBar != nil {
 					progressBar.Complete()
 					progressBar = nil
 				}
+				
 				if !quiet {
-					printStatus("info", "Merging video and audio streams...")
-				}
-			} else if strings.Contains(line, "[ExtractAudio]") {
-				if !quiet {
-					printStatus("info", "Extracting audio streams...")
-				}
-			} else if strings.Contains(line, "[SponsorBlock]") {
-				if !quiet {
-					printStatus("info", "Processing SponsorBlock segments...")
-				}
-			} else if strings.Contains(line, "[Metadata]") {
-				if !quiet {
-					printStatus("info", "Writing metadata...")
-				}
-			} else if strings.Contains(line, "[ModifyChapters]") {
-				if !quiet {
-					printStatus("info", "Writing chapters...")
+					if strings.Contains(line, "Merging formats") {
+						printStatus("info", "Merging streams...")
+					} else if strings.Contains(line, "[ExtractAudio]") {
+						printStatus("info", "Extracting audio...")
+					} else if strings.Contains(line, "[SponsorBlock]") {
+						printStatus("info", "Processing SponsorBlock...")
+					} else if strings.Contains(line, "[Metadata]") {
+						printStatus("info", "Writing metadata...")
+					} else if strings.Contains(line, "[ModifyChapters]") {
+						printStatus("info", "Writing chapters...")
+					} else if strings.Contains(line, "[Fixup") {
+						printStatus("info", "Fixing container...")
+					}
 				}
 			}
 			continue
@@ -501,10 +504,6 @@ func runYTDLPWithProgress(ytdlpPath, ffmpegDir, description string, quiet bool, 
 						progressBar = NewProgressBar(description, 40)
 					}
 					progressBar.Update(total*(pct/100), total)
-					if pct >= 100 {
-						progressBar.Complete()
-						progressBar = nil
-					}
 				}
 			} else if m := reProgressPct.FindStringSubmatch(line); len(m) >= 2 && totalSize > 0 {
 				pct, _ := strconv.ParseFloat(m[1], 64)
@@ -512,10 +511,6 @@ func runYTDLPWithProgress(ytdlpPath, ffmpegDir, description string, quiet bool, 
 					progressBar = NewProgressBar(description, 40)
 				}
 				progressBar.Update(totalSize*(pct/100), totalSize)
-				if pct >= 100 {
-					progressBar.Complete()
-					progressBar = nil
-				}
 			}
 		}
 	}
