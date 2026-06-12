@@ -47,7 +47,7 @@ func selectPlaylistItems(ytdlpPath, url, proxyURL string) string {
 		var raw map[string]interface{}
 		if err := json.Unmarshal([]byte(line), &raw); err == nil {
 			title := ""
-			
+
 			// Try to find the best descriptive string in the JSON object
 			keys := []string{"title", "fulltitle", "name", "track", "id", "url", "webpage_url"}
 			for _, k := range keys {
