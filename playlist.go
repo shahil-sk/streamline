@@ -11,10 +11,7 @@ import (
 	"github.com/AlecAivazis/survey/v2"
 )
 
-type PlaylistItem struct {
-	ID    string `json:"id"`
-	Title string `json:"title"`
-}
+// PlaylistItem fields are dynamic depending on the platform.
 
 func selectPlaylistItems(ytdlpPath, url, proxyURL string) string {
 	spinner := NewSpinner("Fetching playlist items...")
@@ -47,11 +44,21 @@ func selectPlaylistItems(ytdlpPath, url, proxyURL string) string {
 	count := 1
 	for scanner.Scan() {
 		line := scanner.Text()
-		var item PlaylistItem
-		if err := json.Unmarshal([]byte(line), &item); err == nil {
-			title := item.Title
-			if title == "" || title == "NA" || title == "null" {
-				title = item.ID
+		var raw map[string]interface{}
+		if err := json.Unmarshal([]byte(line), &raw); err == nil {
+			title := ""
+			
+			// Try to find the best descriptive string in the JSON object
+			keys := []string{"title", "fulltitle", "name", "track", "id", "url", "webpage_url"}
+			for _, k := range keys {
+				if val, ok := raw[k].(string); ok && val != "" && val != "NA" && val != "null" {
+					title = val
+					break
+				}
+			}
+
+			if title == "" {
+				title = "Unknown Item"
 			}
 			if len(title) > 60 {
 				title = title[:57] + "..."
