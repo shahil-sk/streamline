@@ -16,6 +16,7 @@ import (
 	"strings"
 	"syscall"
 	"time"
+	"sync"
 )
 
 const authorTag = "Streamline by SK (Shahil Ahmed)"
@@ -315,6 +316,10 @@ func usage() {
   %s-q%s        Quiet mode (skip prompts, use best quality)
   %s-s%s        Remove sponsor segments (SponsorBlock)
   %s--subs%s    Embed subtitles (video only)
+  %s--start%s   Start timestamp for clipping (e.g. 01:00)
+  %s--end%s     End timestamp for clipping (e.g. 02:30)
+  %s--batch%s   File containing URLs to download
+  %s-j%s        Number of concurrent downloads (default: 1)
   %s--dns%s     Bypass system DNS via custom server or DoH endpoint
   %s--about%s   Author information
 
@@ -323,6 +328,10 @@ func usage() {
 		colorYellow, colorReset,
 		colorYellow, colorReset,
 		colorYellow, colorReset,
+		colorGreen, colorReset,
+		colorGreen, colorReset,
+		colorGreen, colorReset,
+		colorGreen, colorReset,
 		colorGreen, colorReset,
 		colorGreen, colorReset,
 		colorGreen, colorReset,
@@ -582,7 +591,7 @@ func moveFile(src, dst string) error {
 
 // ─── Download Commands ───────────────────────────────────────────────────────
 
-func audioDownload(ytdlpPath, ffmpegPath, workDir, url, outDir, proxyURL string, quiet, sponsorBlock bool) {
+func audioDownload(ytdlpPath, ffmpegPath, workDir, url, outDir, proxyURL string, quiet, sponsorBlock bool, start, end string) {
 	if !quiet {
 		printBanner()
 	}
@@ -675,6 +684,13 @@ func audioDownload(ytdlpPath, ffmpegPath, workDir, url, outDir, proxyURL string,
 	if proxyURL != "" {
 		args = append(args, "--proxy", proxyURL)
 	}
+	if start != "" || end != "" {
+		if start == "" { start = "0" }
+		if end == "" { end = "inf" }
+		args = append(args, "--download-sections", fmt.Sprintf("*%s-%s", start, end))
+		// We must force re-encoding for precise cuts
+		args = append(args, "--force-keyframes-at-cuts")
+	}
 
 	runYTDLPWithProgress(ytdlpPath, ffmpegDir, "Downloading audio", args...)
 
@@ -746,7 +762,7 @@ func validateURL(urlStr string) error {
 	return nil
 }
 
-func videoDownload(ytdlpPath, ffmpegPath, workDir, url, outDir, proxyURL string, quiet, sponsorBlock, subtitles bool) {
+func videoDownload(ytdlpPath, ffmpegPath, workDir, url, outDir, proxyURL string, quiet, sponsorBlock, subtitles bool, start, end string) {
 	if !quiet {
 		printBanner()
 	}
@@ -832,6 +848,12 @@ func videoDownload(ytdlpPath, ffmpegPath, workDir, url, outDir, proxyURL string,
 	if proxyURL != "" {
 		args = append(args, "--proxy", proxyURL)
 	}
+	if start != "" || end != "" {
+		if start == "" { start = "0" }
+		if end == "" { end = "inf" }
+		args = append(args, "--download-sections", fmt.Sprintf("*%s-%s", start, end))
+		args = append(args, "--force-keyframes-at-cuts")
+	}
 	args = append(args, url)
 
 	runYTDLPWithProgress(ytdlpPath, ffmpegDir, "Downloading video", args...)
@@ -893,6 +915,10 @@ func main() {
 	subtitles := flag.Bool("subs", false, "Embed subtitles")
 	about := flag.Bool("about", false, "Show author info")
 	dnsServer := flag.String("dns", "", "Use custom DNS server (bypasses system DNS)")
+	start := flag.String("start", "", "Start timestamp for clipping (e.g. 01:00)")
+	end := flag.String("end", "", "End timestamp for clipping (e.g. 02:30)")
+	batchFile := flag.String("batch", "", "File containing multiple URLs to download")
+	concurrent := flag.Int("j", 1, "Number of concurrent downloads (batch mode)")
 
 	flag.Usage = usage
 	flag.Parse()
@@ -906,13 +932,30 @@ func main() {
 		os.Exit(0)
 	}
 
-	if (!*musicMode && !*videoMode) || flag.NArg() < 1 {
+	var urls []string
+	if *batchFile != "" {
+		b, err := os.ReadFile(*batchFile)
+		if err != nil {
+			exitWithError(fmt.Sprintf("Failed to read batch file: %v", err))
+		}
+		for _, line := range strings.Split(string(b), "\n") {
+			line = strings.TrimSpace(line)
+			if line != "" && !strings.HasPrefix(line, "#") {
+				urls = append(urls, line)
+			}
+		}
+	} else if flag.NArg() > 0 {
+		urls = flag.Args()
+	}
+
+	if (!*musicMode && !*videoMode) || len(urls) == 0 {
 		usage()
 	}
 
-	urlArg := strings.TrimSpace(flag.Arg(0))
-	if err := validateURL(urlArg); err != nil {
-		exitWithError(fmt.Sprintf("Invalid URL: %v", err))
+	for _, u := range urls {
+		if err := validateURL(u); err != nil {
+			exitWithError(fmt.Sprintf("Invalid URL %s: %v", u, err))
+		}
 	}
 
 	if *outDir != "" {
@@ -938,9 +981,29 @@ func main() {
 		}
 	}
 
-	if *musicMode {
-		audioDownload(ytdlpPath, ffmpegPath, workDir, urlArg, *outDir, proxyURL, *quiet, *sponsorBlock)
-	} else if *videoMode {
-		videoDownload(ytdlpPath, ffmpegPath, workDir, urlArg, *outDir, proxyURL, *quiet, *sponsorBlock, *subtitles)
+	var wg sync.WaitGroup
+	sem := make(chan struct{}, *concurrent)
+
+	for i, u := range urls {
+		wg.Add(1)
+		go func(index int, rawUrl string) {
+			defer wg.Done()
+			sem <- struct{}{}
+			defer func() { <-sem }()
+
+			if len(urls) > 1 {
+				fmt.Printf("\n%s[%d/%d] Processing: %s%s\n", colorCyan, index+1, len(urls), rawUrl, colorReset)
+			}
+			if *musicMode {
+				audioDownload(ytdlpPath, ffmpegPath, workDir, rawUrl, *outDir, proxyURL, *quiet || len(urls) > 1, *sponsorBlock, *start, *end)
+			} else if *videoMode {
+				videoDownload(ytdlpPath, ffmpegPath, workDir, rawUrl, *outDir, proxyURL, *quiet || len(urls) > 1, *sponsorBlock, *subtitles, *start, *end)
+			}
+			if len(urls) > 1 {
+				fmt.Printf("%s[%d/%d] Completed: %s%s\n", colorGreen, index+1, len(urls), rawUrl, colorReset)
+			}
+		}(i, u)
 	}
+
+	wg.Wait()
 }

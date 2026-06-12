@@ -24,6 +24,8 @@
 
 - **Multi-Platform Support**: Works flawlessly with **1000+ platforms** including YouTube, SoundCloud, Instagram, TikTok, and X.
 - **Audio Extraction**: Converts media to high-quality formats (MP3, FLAC, M4A, WAV, OPUS).
+- **Batch & Concurrent Downloading**: Pass multiple URLs or a `.txt` file (`--batch`) and download them concurrently (`-j 5`).
+- **Timestamp Clipping**: Download only a specific section of a video/audio using `--start` and `--end` (e.g. `--start 01:00 --end 02:30`).
 - **Rich Metadata**: Automatically embeds ID3 tags, artist metadata, and cover art into the downloaded files.
 - **Interactive Prompts**: Clean, intuitive TUI for selecting media quality and formats.
 - **SponsorBlock Integration**: Pass the `-s` flag to automatically strip out baked-in sponsor segments, intros, and outros.
@@ -47,6 +49,24 @@ streamline -m <url>
 streamline -v <url>
 ```
 
+### Batch & Concurrent Downloads
+
+Download a list of URLs from a file, running 3 downloads at a time:
+```bash
+streamline -v --batch urls.txt -j 3
+```
+You can also just pass multiple URLs directly:
+```bash
+streamline -m <url1> <url2> <url3> -j 3
+```
+
+### Timestamp Clipping
+
+Only want a specific part of a long video or podcast?
+```bash
+streamline -v --start 01:20 --end 03:45 <url>
+```
+
 ### Bypass Restricted Networks
 
 If your network forces YouTube Restricted Mode, bypass it using DoH:
@@ -63,6 +83,10 @@ streamline -v --dns https://dns.google/resolve <url>
   -q        Quiet mode (skip prompts, use best quality)
   -s        Remove sponsor segments (SponsorBlock)
   --subs    Embed subtitles (video only)
+  --start   Start timestamp for clipping (e.g. 01:00)
+  --end     End timestamp for clipping (e.g. 02:30)
+  --batch   File containing URLs to download
+  -j        Number of concurrent downloads (default: 1)
   --dns     Bypass system DNS via custom server or DoH endpoint
   --about   Author information
 ```
