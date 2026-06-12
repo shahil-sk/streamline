@@ -686,7 +686,6 @@ func audioDownload(ytdlpPath, ffmpegPath, workDir, url, outDir, proxyURL string,
 	ffmpegDir := filepath.Dir(ffmpegPath)
 	
 	args := []string{
-		url,
 		"-f", "bestaudio",
 		"--extract-audio",
 		"--audio-format", audioFmt,
@@ -716,6 +715,7 @@ func audioDownload(ytdlpPath, ffmpegPath, workDir, url, outDir, proxyURL string,
 	if playlistItems != "" {
 		args = append(args, "--playlist-items", playlistItems)
 	}
+	args = append(args, url)
 
 	runYTDLPWithProgress(ytdlpPath, ffmpegDir, "Downloading audio", quiet, args...)
 
