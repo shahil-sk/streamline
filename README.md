@@ -84,20 +84,31 @@ streamline -v --dns https://dns.google/resolve <url>
 ### Additional Flags
 
 ```bash
+  [ Core ]
   -m          Music/audio mode
   -v          Video mode
   -o          Output directory (default: current directory)
   -q          Quiet mode (skip prompts, use best quality)
-  -s          Remove sponsor segments (SponsorBlock)
+  --about     Author information
+
+  [ Media Processing ]
   --subs      Embed subtitles (video only)
-  --select    Interactive playlist item selector (TUI)
-  --cookies   Extract cookies from browser (e.g. chrome, firefox)
   --start     Start timestamp for clipping (e.g. 01:00)
   --end       End timestamp for clipping (e.g. 02:30)
+
+  [ SponsorBlock ]
+  -s          Remove sponsor segments
+  --sp-mark   Mark sponsor segments as chapters instead of removing
+  --sp-cats   SponsorBlock categories (default: "default")
+
+  [ Batch & Playlist ]
   --batch     File containing URLs to download
   -j          Number of concurrent downloads (default: 1)
+  --select    Interactive playlist item selector (TUI)
+
+  [ Network & Auth ]
+  --cookies   Extract cookies from browser (e.g. chrome, firefox)
   --dns       Bypass system DNS via custom server or DoH endpoint
-  --about     Author information
 ```
 
 ---

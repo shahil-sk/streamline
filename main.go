@@ -30,38 +30,56 @@ func usage() {
   streamline -v -q -o ~/Downloads https://youtu.be/xxxxx
 
 %sFlags:%s
+
+  [ Core ]
   %s-m%s          Music/audio mode
   %s-v%s          Video mode
   %s-o%s          Output directory (default: current directory)
   %s-q%s          Quiet mode (skip prompts, use best quality)
-  %s-s%s          Remove sponsor segments (SponsorBlock)
+  %s--about%s     Author information
+
+  [ Media Processing ]
   %s--subs%s      Embed subtitles (video only)
-  %s--select%s    Interactive playlist item selector (TUI)
-  %s--cookies%s   Extract cookies from browser (e.g. chrome, firefox)
   %s--start%s     Start timestamp for clipping (e.g. 01:00)
   %s--end%s       End timestamp for clipping (e.g. 02:30)
+
+  [ SponsorBlock ]
+  %s-s%s          Remove sponsor segments
+  %s--sp-mark%s   Mark sponsor segments as chapters instead of removing
+  %s--sp-cats%s   SponsorBlock categories (default: "default")
+
+  [ Batch & Playlist ]
   %s--batch%s     File containing URLs to download
   %s-j%s          Number of concurrent downloads (default: 1)
+  %s--select%s    Interactive playlist item selector (TUI)
+
+  [ Network & Auth ]
+  %s--cookies%s   Extract cookies from browser (e.g. chrome, firefox)
   %s--dns%s       Bypass system DNS via custom server or DoH endpoint
-  %s--about%s     Author information
 
 `,
 		colorCyan, colorReset, colorYellow, colorReset,
 		colorYellow, colorReset,
 		colorYellow, colorReset,
-		colorYellow, colorReset,
+		// Core
 		colorGreen, colorReset,
 		colorGreen, colorReset,
 		colorGreen, colorReset,
 		colorGreen, colorReset,
 		colorGreen, colorReset,
+		// Media
 		colorGreen, colorReset,
 		colorGreen, colorReset,
 		colorGreen, colorReset,
+		// Sponsorblock
 		colorGreen, colorReset,
 		colorGreen, colorReset,
 		colorGreen, colorReset,
+		// Batch
 		colorGreen, colorReset,
+		colorGreen, colorReset,
+		colorGreen, colorReset,
+		// Network
 		colorGreen, colorReset,
 		colorGreen, colorReset)
 	runCleanups()
@@ -87,6 +105,8 @@ func main() {
 	outDir := flag.String("o", "", "Output directory")
 	quiet := flag.Bool("q", false, "Quiet mode")
 	sponsorBlock := flag.Bool("s", false, "Remove sponsor segments")
+	sponsorMark := flag.Bool("sp-mark", false, "Mark sponsor segments as chapters instead of removing")
+	sponsorCats := flag.String("sp-cats", "default", "SponsorBlock categories (e.g. sponsor,intro,outro)")
 	subtitles := flag.Bool("subs", false, "Embed subtitles")
 	selectItems := flag.Bool("select", false, "Interactive playlist item selector")
 	cookies := flag.String("cookies", "", "Extract cookies from browser (e.g. chrome, firefox)")
@@ -177,9 +197,9 @@ func main() {
 			}
 
 			if *musicMode {
-				audioDownload(ytdlpPath, ffmpegPath, workDir, rawUrl, *outDir, proxyURL, *quiet || len(urls) > 1, *sponsorBlock, *start, *end, plItems, *cookies)
+				audioDownload(ytdlpPath, ffmpegPath, workDir, rawUrl, *outDir, proxyURL, *quiet || len(urls) > 1, *sponsorBlock, *sponsorMark, *sponsorCats, *start, *end, plItems, *cookies)
 			} else if *videoMode {
-				videoDownload(ytdlpPath, ffmpegPath, workDir, rawUrl, *outDir, proxyURL, *quiet || len(urls) > 1, *sponsorBlock, *subtitles, *start, *end, plItems, *cookies)
+				videoDownload(ytdlpPath, ffmpegPath, workDir, rawUrl, *outDir, proxyURL, *quiet || len(urls) > 1, *sponsorBlock, *sponsorMark, *sponsorCats, *subtitles, *start, *end, plItems, *cookies)
 			}
 			if len(urls) > 1 {
 				fmt.Printf("%s[%d/%d] Completed: %s%s\n", colorGreen, index+1, len(urls), rawUrl, colorReset)

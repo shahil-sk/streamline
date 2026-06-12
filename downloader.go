@@ -202,7 +202,7 @@ func embedThumbnail(ffmpegPath, audioFile, thumbFile string) {
 	check(os.Rename(tempFile, audioFile))
 }
 
-func audioDownload(ytdlpPath, ffmpegPath, workDir, url, outDir, proxyURL string, quiet, sponsorBlock bool, start, end, playlistItems, cookies string) {
+func audioDownload(ytdlpPath, ffmpegPath, workDir, url, outDir, proxyURL string, quiet, sponsorBlock, sponsorMark bool, sponsorCats, start, end, playlistItems, cookies string) {
 	if !quiet {
 		printBanner()
 	}
@@ -290,7 +290,9 @@ func audioDownload(ytdlpPath, ffmpegPath, workDir, url, outDir, proxyURL string,
 		args = append(args, "--audio-quality", audioQuality)
 	}
 	if sponsorBlock {
-		args = append(args, "--sponsorblock-remove", "default")
+		args = append(args, "--sponsorblock-remove", sponsorCats)
+	} else if sponsorMark {
+		args = append(args, "--sponsorblock-mark", sponsorCats)
 	}
 	if proxyURL != "" {
 		args = append(args, "--proxy", proxyURL)
@@ -357,7 +359,7 @@ func audioDownload(ytdlpPath, ffmpegPath, workDir, url, outDir, proxyURL string,
 	}
 }
 
-func videoDownload(ytdlpPath, ffmpegPath, workDir, url, outDir, proxyURL string, quiet, sponsorBlock, subtitles bool, start, end, playlistItems, cookies string) {
+func videoDownload(ytdlpPath, ffmpegPath, workDir, url, outDir, proxyURL string, quiet, sponsorBlock, sponsorMark bool, sponsorCats string, subtitles bool, start, end, playlistItems, cookies string) {
 	if !quiet {
 		printBanner()
 	}
@@ -436,7 +438,9 @@ func videoDownload(ytdlpPath, ffmpegPath, workDir, url, outDir, proxyURL string,
 		"--ffmpeg-location", ffmpegPath,
 	}
 	if sponsorBlock {
-		args = append(args, "--sponsorblock-remove", "default")
+		args = append(args, "--sponsorblock-remove", sponsorCats)
+	} else if sponsorMark {
+		args = append(args, "--sponsorblock-mark", sponsorCats)
 	}
 	if subtitles {
 		args = append(args, "--write-auto-subs", "--write-subs", "--embed-subs", "--sub-langs", "all,-live_chat")
