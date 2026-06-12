@@ -402,7 +402,7 @@ func parseSize(sizeStr string) float64 {
 // scannerBufSize is large enough to handle yt-dlp's widest output lines
 const scannerBufSize = 256 * 1024
 
-func runYTDLPWithProgress(ytdlpPath, ffmpegDir, description string, args ...string) {
+func runYTDLPWithProgress(ytdlpPath, ffmpegDir, description string, quiet bool, args ...string) {
 	args = append(args, "--newline", "--progress")
 	cmd := exec.Command(ytdlpPath, args...)
 	cmd.Env = append(os.Environ(),
@@ -436,7 +436,25 @@ func runYTDLPWithProgress(ytdlpPath, ffmpegDir, description string, args ...stri
 					progressBar.Complete()
 					progressBar = nil
 				}
-				printStatus("info", "Merging video and audio streams...")
+				if !quiet {
+					printStatus("info", "Merging video and audio streams...")
+				}
+			} else if strings.Contains(line, "[ExtractAudio]") {
+				if !quiet {
+					printStatus("info", "Extracting audio streams...")
+				}
+			} else if strings.Contains(line, "[SponsorBlock]") {
+				if !quiet {
+					printStatus("info", "Processing SponsorBlock segments...")
+				}
+			} else if strings.Contains(line, "[Metadata]") {
+				if !quiet {
+					printStatus("info", "Writing metadata...")
+				}
+			} else if strings.Contains(line, "[ModifyChapters]") {
+				if !quiet {
+					printStatus("info", "Writing chapters...")
+				}
 			}
 			continue
 		}
@@ -455,8 +473,10 @@ func runYTDLPWithProgress(ytdlpPath, ffmpegDir, description string, args ...stri
 				progressBar = nil
 			}
 			totalSize = 0 // Reset for the new file in playlist
-			filename := strings.TrimSpace(strings.TrimPrefix(line, "[download] Destination:"))
-			printStatus("info", "File: "+filepath.Base(filename))
+			if !quiet {
+				filename := strings.TrimSpace(strings.TrimPrefix(line, "[download] Destination:"))
+				printStatus("info", "File: "+filepath.Base(filename))
+			}
 
 		case strings.Contains(line, "has already been downloaded"):
 			if progressBar != nil {
@@ -464,9 +484,14 @@ func runYTDLPWithProgress(ytdlpPath, ffmpegDir, description string, args ...stri
 				progressBar = nil
 			}
 			totalSize = 0 // Reset for the new file in playlist
-			printStatus("warning", "File already exists, skipping...")
+			if !quiet {
+				printStatus("warning", "File already exists, skipping...")
+			}
 
 		default:
+			if quiet {
+				continue
+			}
 			if m := reProgressFull.FindStringSubmatch(line); len(m) >= 3 {
 				pct, _ := strconv.ParseFloat(m[1], 64)
 				total := parseSize(m[2])
@@ -697,7 +722,7 @@ func audioDownload(ytdlpPath, ffmpegPath, workDir, url, outDir, proxyURL string,
 		args = append(args, "--playlist-items", playlistItems)
 	}
 
-	runYTDLPWithProgress(ytdlpPath, ffmpegDir, "Downloading audio", args...)
+	runYTDLPWithProgress(ytdlpPath, ffmpegDir, "Downloading audio", quiet, args...)
 
 	audioFiles, err := filepath.Glob(filepath.Join(workDir, "*."+audioFmt))
 	if err != nil {
@@ -864,7 +889,7 @@ func videoDownload(ytdlpPath, ffmpegPath, workDir, url, outDir, proxyURL string,
 	}
 	args = append(args, url)
 
-	runYTDLPWithProgress(ytdlpPath, ffmpegDir, "Downloading video", args...)
+	runYTDLPWithProgress(ytdlpPath, ffmpegDir, "Downloading video", quiet, args...)
 
 	files, err := filepath.Glob(filepath.Join(workDir, "*"))
 	if err != nil {
