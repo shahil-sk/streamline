@@ -898,9 +898,11 @@ func main() {
 	flag.Parse()
 
 	if *about {
-		fmt.Printf("\n%s%s%s\n", colorCyan, authorTag, colorReset)
-		fmt.Printf("\n%sGitHub:%s %shttps://github.com/shahil-sk/streamline%s\n\n",
-			colorYellow, colorReset, colorBlue, colorReset)
+		printBanner()
+		fmt.Printf("%sStreamline%s is an open-source universal media downloader.\n", colorCyan, colorReset)
+		fmt.Printf("Built with ❤️ by %sShahil Ahmed (SK)%s\n\n", colorYellow, colorReset)
+		fmt.Printf("%sGitHub:%s   https://github.com/shahil-sk/streamline\n", colorCyan, colorReset)
+		fmt.Printf("%sLicense:%s  MIT License\n\n", colorCyan, colorReset)
 		os.Exit(0)
 	}
 
