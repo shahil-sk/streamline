@@ -42,3 +42,5 @@ streamline.test
 # Bundled binaries
 yt-dlp
 ffmpeg
+assets/
+assets/*

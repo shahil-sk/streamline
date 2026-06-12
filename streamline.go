@@ -298,7 +298,7 @@ func usage() {
   \__ \/ __/ ___/ _ \/ __ '/ __ '__ \   / / / __ \/ _ \
  ___/ / /_/ /  /  __/ /_/ / / / / / /  / / / / / /  __/
 /____/\__/_/   \___/\__,_/_/ /_/ /_/  /_/_/_/ /_/\___/ %s
-      %sYouTube • SoundCloud • Instagram Downloader%s
+      %sUniversal Media Downloader (1000+ Sites)%s
 
 %sUsage:%s
   streamline -m [flags] <url>    Download audio
@@ -341,7 +341,7 @@ func printBanner() {
   \__ \/ __/ ___/ _ \/ __ '/ __ '__ \   / / / __ \/ _ \
  ___/ / /_/ /  /  __/ /_/ / / / / / /  / / / / / /  __/
 /____/\__/_/   \___/\__,_/_/ /_/ /_/  /_/_/_/ /_/\___/ 
-      YouTube • SoundCloud • Instagram Downloader`
+      Universal Media Downloader (1000+ Sites)`
 	fmt.Printf("%s%s%s\n\n", colorCyan, banner, colorReset)
 }
 

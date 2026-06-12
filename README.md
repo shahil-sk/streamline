@@ -5,7 +5,7 @@
 <h1 align="center">Streamline</h1>
 
 <p align="center">
-  <strong>A lightning-fast, ultra-portable media downloader for YouTube, SoundCloud, and Instagram.</strong>
+  <strong>A lightning-fast, ultra-portable media downloader for 1000+ sites (YouTube, SoundCloud, Instagram, TikTok, X, etc.)</strong>
 </p>
 
 <p align="center">
@@ -22,7 +22,7 @@
 
 ## ✨ Features
 
-- **Multi-Platform Support**: Works flawlessly with **YouTube**, **SoundCloud**, and **Instagram**.
+- **Multi-Platform Support**: Works flawlessly with **1000+ platforms** including YouTube, SoundCloud, Instagram, TikTok, and X.
 - **Audio Extraction**: Converts media to high-quality formats (MP3, FLAC, M4A, WAV, OPUS).
 - **Rich Metadata**: Automatically embeds ID3 tags, artist metadata, and cover art into the downloaded files.
 - **Interactive Prompts**: Clean, intuitive TUI for selecting media quality and formats.
