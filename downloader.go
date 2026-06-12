@@ -349,7 +349,7 @@ func audioDownload(ytdlpPath, ffmpegPath, workDir, url, outDir, proxyURL string,
 		if !quiet {
 			fmt.Println()
 		}
-		printStatus("success", fmt.Sprintf("✨ Successfully downloaded: %s%s%s", colorBold, destName, colorReset))
+		printStatus("success", fmt.Sprintf("Successfully downloaded: %s%s%s", colorBold, destName, colorReset))
 	}
 }
 
@@ -483,7 +483,7 @@ func videoDownload(ytdlpPath, ffmpegPath, workDir, url, outDir, proxyURL string,
 		if !quiet {
 			fmt.Println()
 		}
-		printStatus("success", fmt.Sprintf("✨ Successfully downloaded: %s%s%s", colorBold, destName, colorReset))
+		printStatus("success", fmt.Sprintf("Successfully downloaded: %s%s%s", colorBold, destName, colorReset))
 		downloadedCount++
 	}
 

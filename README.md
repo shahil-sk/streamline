@@ -16,11 +16,11 @@
 
 <br/>
 
-## 🚀 Overview
+## Overview
 
 **Streamline** provides an interactive and highly optimized CLI experience for downloading high-quality audio and video. It wraps industry-standard tools into a beautifully simple interface, while adding powerful custom features like **native DNS-over-HTTPS (DoH)** to bypass restrictive corporate/school firewalls.
 
-## ✨ Features
+## Features
 
 - **Multi-Platform Support**: Works flawlessly with **1000+ platforms** including YouTube, SoundCloud, Instagram, TikTok, and X.
 - **Audio Extraction**: Converts media to high-quality formats (MP3, FLAC, M4A, WAV, OPUS).
@@ -36,7 +36,7 @@
 
 ---
 
-## 💻 Usage
+## Usage
 
 ### Download Audio (with metadata & cover art)
 
@@ -101,7 +101,7 @@ streamline -v --dns https://dns.google/resolve <url>
 
 ---
 
-## 📦 Installation
+## Installation
 
 ### Prebuilt Bundled Binary (Recommended)
 Download the latest portable release for your OS from the **[Releases](https://github.com/shahil-sk/streamline/releases)** page. The bundled release contains `yt-dlp` and `ffmpeg` embedded directly inside the binary.
@@ -135,5 +135,5 @@ make build-portable
 
 ---
 
-## 🤝 Contributing
+## Contributing
 Pull requests are welcome! If you have improvements, performance ideas, or bug fixes, feel free to open an issue or submit a PR.

@@ -133,9 +133,9 @@ func (s *Spinner) Start() {
 func (s *Spinner) Stop(success bool) {
 	close(s.stop)
 	time.Sleep(100 * time.Millisecond)
-	icon, color := "✓", colorGreen
+	icon, color := "[OK]", colorGreen
 	if !success {
-		icon, color = "✗", colorRed
+		icon, color = "[FAIL]", colorRed
 	}
 	fmt.Printf("\r%s%s%s %s\n", color, icon, colorReset, s.message)
 }
@@ -167,14 +167,14 @@ func printBanner() {
 func printStatus(status, message string) {
 	type entry struct{ icon, color string }
 	table := map[string]entry{
-		"info":    {"ℹ", colorBlue},
-		"success": {"✓", colorGreen},
-		"warning": {"⚠", colorYellow},
-		"error":   {"✗", colorRed},
+		"info":    {"[INFO]", colorBlue},
+		"success": {"[OK]", colorGreen},
+		"warning": {"[WARN]", colorYellow},
+		"error":   {"[FAIL]", colorRed},
 	}
 	e, ok := table[status]
 	if !ok {
-		e = entry{"•", colorReset}
+		e = entry{"[*]", colorReset}
 	}
 	fmt.Printf("%s%s%s %s\n", e.color, e.icon, colorReset, message)
 }
