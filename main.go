@@ -30,20 +30,20 @@ func usage() {
   streamline -v -q -o ~/Downloads https://youtu.be/xxxxx
 
 %sFlags:%s
-  %s-m%s        Music/audio mode
-  %s-v%s        Video mode
-  %s-o%s        Output directory (default: current directory)
-  %s-q%s        Quiet mode (skip prompts, use best quality)
-  %s-s%s        Remove sponsor segments (SponsorBlock)
-  %s--subs%s    Embed subtitles (video only)
-  %s--select%s  Interactive playlist item selector (TUI)
-  %s--cookies%s Extract cookies from browser (e.g. chrome, firefox)
-  %s--start%s   Start timestamp for clipping (e.g. 01:00)
-  %s--end%s     End timestamp for clipping (e.g. 02:30)
-  %s--batch%s   File containing URLs to download
-  %s-j%s        Number of concurrent downloads (default: 1)
-  %s--dns%s     Bypass system DNS via custom server or DoH endpoint
-  %s--about%s   Author information
+  %s-m%s          Music/audio mode
+  %s-v%s          Video mode
+  %s-o%s          Output directory (default: current directory)
+  %s-q%s          Quiet mode (skip prompts, use best quality)
+  %s-s%s          Remove sponsor segments (SponsorBlock)
+  %s--subs%s      Embed subtitles (video only)
+  %s--select%s    Interactive playlist item selector (TUI)
+  %s--cookies%s   Extract cookies from browser (e.g. chrome, firefox)
+  %s--start%s     Start timestamp for clipping (e.g. 01:00)
+  %s--end%s       End timestamp for clipping (e.g. 02:30)
+  %s--batch%s     File containing URLs to download
+  %s-j%s          Number of concurrent downloads (default: 1)
+  %s--dns%s       Bypass system DNS via custom server or DoH endpoint
+  %s--about%s     Author information
 
 `,
 		colorCyan, colorReset, colorYellow, colorReset,
