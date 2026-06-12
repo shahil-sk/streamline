@@ -13,13 +13,16 @@ import (
 
 // PlaylistItem fields are dynamic depending on the platform.
 
-func selectPlaylistItems(ytdlpPath, url, proxyURL string) string {
+func selectPlaylistItems(ytdlpPath, url, proxyURL, cookies string) string {
 	spinner := NewSpinner("Fetching playlist items...")
 	spinner.Start()
 
 	args := []string{"--flat-playlist", "--dump-json", url}
 	if proxyURL != "" {
 		args = append([]string{"--proxy", proxyURL}, args...)
+	}
+	if cookies != "" {
+		args = append([]string{"--cookies-from-browser", cookies}, args...)
 	}
 
 	cmd := exec.Command(ytdlpPath, args...)

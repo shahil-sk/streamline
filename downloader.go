@@ -202,7 +202,7 @@ func embedThumbnail(ffmpegPath, audioFile, thumbFile string) {
 	check(os.Rename(tempFile, audioFile))
 }
 
-func audioDownload(ytdlpPath, ffmpegPath, workDir, url, outDir, proxyURL string, quiet, sponsorBlock bool, start, end, playlistItems string) {
+func audioDownload(ytdlpPath, ffmpegPath, workDir, url, outDir, proxyURL string, quiet, sponsorBlock bool, start, end, playlistItems, cookies string) {
 	if !quiet {
 		printBanner()
 	}
@@ -284,15 +284,19 @@ func audioDownload(ytdlpPath, ffmpegPath, workDir, url, outDir, proxyURL string,
 		"--add-metadata",
 		"-o", filepath.Join(workDir, "%(title)s.%(ext)s"),
 		"--write-thumbnail",
+		"--ffmpeg-location", ffmpegPath,
 	}
 	if audioQuality != "" {
 		args = append(args, "--audio-quality", audioQuality)
 	}
 	if sponsorBlock {
-		args = append(args, "--sponsorblock-remove", "all")
+		args = append(args, "--sponsorblock-remove", "default")
 	}
 	if proxyURL != "" {
 		args = append(args, "--proxy", proxyURL)
+	}
+	if cookies != "" {
+		args = append(args, "--cookies-from-browser", cookies)
 	}
 	if start != "" || end != "" {
 		if start == "" {
@@ -353,7 +357,7 @@ func audioDownload(ytdlpPath, ffmpegPath, workDir, url, outDir, proxyURL string,
 	}
 }
 
-func videoDownload(ytdlpPath, ffmpegPath, workDir, url, outDir, proxyURL string, quiet, sponsorBlock, subtitles bool, start, end, playlistItems string) {
+func videoDownload(ytdlpPath, ffmpegPath, workDir, url, outDir, proxyURL string, quiet, sponsorBlock, subtitles bool, start, end, playlistItems, cookies string) {
 	if !quiet {
 		printBanner()
 	}
@@ -429,15 +433,19 @@ func videoDownload(ytdlpPath, ffmpegPath, workDir, url, outDir, proxyURL string,
 	args := []string{
 		"-f", format,
 		"-o", filepath.Join(workDir, "%(title)s.%(ext)s"),
+		"--ffmpeg-location", ffmpegPath,
 	}
 	if sponsorBlock {
-		args = append(args, "--sponsorblock-remove", "all")
+		args = append(args, "--sponsorblock-remove", "default")
 	}
 	if subtitles {
 		args = append(args, "--write-auto-subs", "--write-subs", "--embed-subs", "--sub-langs", "all,-live_chat")
 	}
 	if proxyURL != "" {
 		args = append(args, "--proxy", proxyURL)
+	}
+	if cookies != "" {
+		args = append(args, "--cookies-from-browser", cookies)
 	}
 	if start != "" || end != "" {
 		if start == "" {

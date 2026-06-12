@@ -37,6 +37,7 @@ func usage() {
   %s-s%s        Remove sponsor segments (SponsorBlock)
   %s--subs%s    Embed subtitles (video only)
   %s--select%s  Interactive playlist item selector (TUI)
+  %s--cookies%s Extract cookies from browser (e.g. chrome, firefox)
   %s--start%s   Start timestamp for clipping (e.g. 01:00)
   %s--end%s     End timestamp for clipping (e.g. 02:30)
   %s--batch%s   File containing URLs to download
@@ -49,6 +50,7 @@ func usage() {
 		colorYellow, colorReset,
 		colorYellow, colorReset,
 		colorYellow, colorReset,
+		colorGreen, colorReset,
 		colorGreen, colorReset,
 		colorGreen, colorReset,
 		colorGreen, colorReset,
@@ -87,6 +89,7 @@ func main() {
 	sponsorBlock := flag.Bool("s", false, "Remove sponsor segments")
 	subtitles := flag.Bool("subs", false, "Embed subtitles")
 	selectItems := flag.Bool("select", false, "Interactive playlist item selector")
+	cookies := flag.String("cookies", "", "Extract cookies from browser (e.g. chrome, firefox)")
 	about := flag.Bool("about", false, "Show author info")
 	dnsServer := flag.String("dns", "", "Use custom DNS server (bypasses system DNS)")
 	start := flag.String("start", "", "Start timestamp for clipping (e.g. 01:00)")
@@ -170,13 +173,13 @@ func main() {
 
 			var plItems string
 			if *selectItems && !*quiet {
-				plItems = selectPlaylistItems(ytdlpPath, rawUrl, proxyURL)
+				plItems = selectPlaylistItems(ytdlpPath, rawUrl, proxyURL, *cookies)
 			}
 
 			if *musicMode {
-				audioDownload(ytdlpPath, ffmpegPath, workDir, rawUrl, *outDir, proxyURL, *quiet || len(urls) > 1, *sponsorBlock, *start, *end, plItems)
+				audioDownload(ytdlpPath, ffmpegPath, workDir, rawUrl, *outDir, proxyURL, *quiet || len(urls) > 1, *sponsorBlock, *start, *end, plItems, *cookies)
 			} else if *videoMode {
-				videoDownload(ytdlpPath, ffmpegPath, workDir, rawUrl, *outDir, proxyURL, *quiet || len(urls) > 1, *sponsorBlock, *subtitles, *start, *end, plItems)
+				videoDownload(ytdlpPath, ffmpegPath, workDir, rawUrl, *outDir, proxyURL, *quiet || len(urls) > 1, *sponsorBlock, *subtitles, *start, *end, plItems, *cookies)
 			}
 			if len(urls) > 1 {
 				fmt.Printf("%s[%d/%d] Completed: %s%s\n", colorGreen, index+1, len(urls), rawUrl, colorReset)
