@@ -5,7 +5,7 @@
 <h1 align="center">Streamline</h1>
 
 <p align="center">
-  <strong>A lightning-fast, ultra-portable media downloader for 1000+ sites (YouTube, SoundCloud, Instagram, TikTok, X, etc.)</strong>
+  <strong>A lightning-fast, ultra-portable media downloader for 1000+ sites (YouTube, SoundCloud, Instagram, TikTok, X, etc.) with Native SponsorBlock Support.</strong>
 </p>
 
 <p align="center">
