@@ -29,7 +29,7 @@
 - **Timestamp Clipping**: Download only a specific section of a video/audio using `--start` and `--end` (e.g. `--start 01:00 --end 02:30`).
 - **Rich Metadata**: Automatically embeds ID3 tags, artist metadata, and cover art into the downloaded files.
 - **Interactive Prompts**: Clean, intuitive TUI for selecting media quality and formats.
-- **SponsorBlock Integration**: Interactive prompts to strip out or mark baked-in sponsor segments, intros, and outros (or use the `-s` / `--sp-mark` flags).
+- **SponsorBlock Integration**: Use `--sponsorblock-remove` or `--sponsorblock-mark` followed by categories (e.g., `all`, `sponsor`) to handle baked-in sponsor segments, intros, and outros natively via `yt-dlp`.
 - **Subtitle Embedding**: Embed auto-generated or official subtitles directly into video files.
 - **Firewall & DNS Bypass**: Use the `--dns` flag with a DoH endpoint (e.g. `https://dns.google/resolve`) to securely route traffic through a custom Go-native proxy, bypassing Network Restricted Modes.
 - **Zero Configuration**: Available as a fully bundled single-binary containing all underlying dependencies.
@@ -97,9 +97,8 @@ streamline -v --dns https://dns.google/resolve <url>
   --end       End timestamp for clipping (e.g. 02:30)
 
   [ SponsorBlock ]
-  -s          Remove sponsor segments
-  --sp-mark   Mark sponsor segments as chapters instead of removing
-  --sp-cats   SponsorBlock categories (default: "default")
+  --sponsorblock-remove CATS  SponsorBlock categories to remove (e.g. default)
+  --sponsorblock-mark CATS    SponsorBlock categories to mark as chapters (e.g. all)
 
   [ Batch & Playlist ]
   --batch     File containing URLs to download

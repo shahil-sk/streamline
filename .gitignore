@@ -44,3 +44,5 @@ yt-dlp
 ffmpeg
 assets/
 assets/*
+*.mp3
+streamline

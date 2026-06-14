@@ -202,7 +202,7 @@ func embedThumbnail(ffmpegPath, audioFile, thumbFile string) {
 	check(os.Rename(tempFile, audioFile))
 }
 
-func audioDownload(ytdlpPath, ffmpegPath, workDir, url, outDir, proxyURL string, quiet, sponsorBlock, sponsorMark bool, sponsorCats, start, end, playlistItems, cookies string) {
+func audioDownload(ytdlpPath, ffmpegPath, workDir, url, outDir, proxyURL string, quiet bool, sponsorRemove, sponsorMark, start, end, playlistItems, cookies string) {
 	if !quiet {
 		printBanner()
 	}
@@ -260,32 +260,6 @@ func audioDownload(ytdlpPath, ffmpegPath, workDir, url, outDir, proxyURL string,
 		}
 	}
 
-	if !quiet && !sponsorBlock && !sponsorMark {
-		fmt.Printf("%s┌─ SponsorBlock ──────────────────────────────┐%s\n", colorYellow, colorReset)
-		sbOptions := []string{
-			"None (Default)",
-			"Remove sponsor segments",
-			"Mark sponsor segments as chapters",
-		}
-		for i, opt := range sbOptions {
-			fmt.Printf("%s│%s %s%d.%s %-40s %s│%s\n",
-				colorYellow, colorReset,
-				colorGreen, i+1, colorReset,
-				opt,
-				colorYellow, colorReset)
-		}
-		fmt.Printf("%s└─────────────────────────────────────────────┘%s\n\n", colorYellow, colorReset)
-
-		sbInput := readInput(fmt.Sprintf("%sChoose SponsorBlock option (1-%d) [default: 1]:%s ", colorCyan, len(sbOptions), colorReset))
-		sbChoice, _ := strconv.Atoi(sbInput)
-		if sbChoice == 2 {
-			sponsorBlock = true
-		} else if sbChoice == 3 {
-			sponsorMark = true
-		}
-		fmt.Println()
-	}
-
 	if !quiet {
 		spinner := NewSpinner("Fetching video information...")
 		spinner.Start()
@@ -315,11 +289,11 @@ func audioDownload(ytdlpPath, ffmpegPath, workDir, url, outDir, proxyURL string,
 	if audioQuality != "" {
 		args = append(args, "--audio-quality", audioQuality)
 	}
-	if sponsorBlock {
-		args = append(args, "--sponsorblock-remove", sponsorCats)
+	if sponsorRemove != "" {
+		args = append(args, "--sponsorblock-remove", sponsorRemove)
 		args = append(args, "--force-keyframes-at-cuts")
-	} else if sponsorMark {
-		args = append(args, "--sponsorblock-mark", sponsorCats)
+	} else if sponsorMark != "" {
+		args = append(args, "--sponsorblock-mark", sponsorMark)
 	}
 	if proxyURL != "" {
 		args = append(args, "--proxy", proxyURL)
@@ -386,7 +360,7 @@ func audioDownload(ytdlpPath, ffmpegPath, workDir, url, outDir, proxyURL string,
 	}
 }
 
-func videoDownload(ytdlpPath, ffmpegPath, workDir, url, outDir, proxyURL string, quiet, sponsorBlock, sponsorMark bool, sponsorCats string, subtitles bool, start, end, playlistItems, cookies string) {
+func videoDownload(ytdlpPath, ffmpegPath, workDir, url, outDir, proxyURL string, quiet bool, sponsorRemove, sponsorMark string, subtitles bool, start, end, playlistItems, cookies string) {
 	if !quiet {
 		printBanner()
 	}
@@ -452,32 +426,6 @@ func videoDownload(ytdlpPath, ffmpegPath, workDir, url, outDir, proxyURL string,
 			printStatus("warning", "Invalid choice, using best quality")
 			format = "bestvideo+bestaudio/best"
 		}
-
-		if !sponsorBlock && !sponsorMark {
-			fmt.Printf("%s┌─ SponsorBlock ──────────────────────────────┐%s\n", colorYellow, colorReset)
-			sbOptions := []string{
-				"None (Default)",
-				"Remove sponsor segments",
-				"Mark sponsor segments as chapters",
-			}
-			for i, opt := range sbOptions {
-				fmt.Printf("%s│%s %s%d.%s %-40s %s│%s\n",
-					colorYellow, colorReset,
-					colorGreen, i+1, colorReset,
-					opt,
-					colorYellow, colorReset)
-			}
-			fmt.Printf("%s└─────────────────────────────────────────────┘%s\n\n", colorYellow, colorReset)
-
-			sbInput := readInput(fmt.Sprintf("%sChoose SponsorBlock option (1-%d) [default: 1]:%s ", colorCyan, len(sbOptions), colorReset))
-			sbChoice, _ := strconv.Atoi(sbInput)
-			if sbChoice == 2 {
-				sponsorBlock = true
-			} else if sbChoice == 3 {
-				sponsorMark = true
-			}
-			fmt.Println()
-		}
 	}
 
 	printStatus("info", "Starting video download...")
@@ -490,11 +438,11 @@ func videoDownload(ytdlpPath, ffmpegPath, workDir, url, outDir, proxyURL string,
 		"-o", filepath.Join(workDir, "%(title)s.%(ext)s"),
 		"--ffmpeg-location", ffmpegPath,
 	}
-	if sponsorBlock {
-		args = append(args, "--sponsorblock-remove", sponsorCats)
+	if sponsorRemove != "" {
+		args = append(args, "--sponsorblock-remove", sponsorRemove)
 		args = append(args, "--force-keyframes-at-cuts")
-	} else if sponsorMark {
-		args = append(args, "--sponsorblock-mark", sponsorCats)
+	} else if sponsorMark != "" {
+		args = append(args, "--sponsorblock-mark", sponsorMark)
 	}
 	if subtitles {
 		args = append(args, "--write-auto-subs", "--write-subs", "--embed-subs", "--sub-langs", "all,-live_chat")

@@ -90,7 +90,7 @@ func TestSponsorBlockTrimming(t *testing.T) {
 	url := "https://www.youtube.com/watch?v=kG22Z4vJhXY"
 	
 	// Run video download with sponsorblock remove
-	videoDownload(ytdlpPath, ffmpegPath, workDir, url, outDir, "", true, true, false, "sponsor", false, "", "", "", "")
+	videoDownload(ytdlpPath, ffmpegPath, workDir, url, outDir, "", true, "sponsor", "", false, "", "", "", "")
 	
 	files, err := os.ReadDir(outDir)
 	if err != nil {

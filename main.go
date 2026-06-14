@@ -20,7 +20,7 @@ func usage() {
  ___/ / /_/ /  /  __/ /_/ / / / / / /  / / / / / /  __/
 /____/\__/_/   \___/\__,_/_/ /_/ /_/  /_/_/_/ /_/\___/ %s
       %sUniversal Media Downloader (1000+ Sites)%s
-          %swith Interactive SponsorBlock%s
+          %swith Native SponsorBlock%s
 
 %sUsage:%s
   streamline -m [flags] <url>    Download audio
@@ -45,9 +45,8 @@ func usage() {
   %s--end%s       End timestamp for clipping (e.g. 02:30)
 
   [ SponsorBlock ]
-  %s-s%s          Remove sponsor segments
-  %s--sp-mark%s   Mark sponsor segments as chapters instead of removing
-  %s--sp-cats%s   SponsorBlock categories (default: "default")
+  %s--sponsorblock-remove%s CATS  SponsorBlock categories to remove
+  %s--sponsorblock-mark%s CATS    SponsorBlock categories to mark as chapters
 
   [ Batch & Playlist ]
   %s--batch%s     File containing URLs to download
@@ -75,7 +74,6 @@ func usage() {
 		colorGreen, colorReset,
 		colorGreen, colorReset,
 		// Sponsorblock
-		colorGreen, colorReset,
 		colorGreen, colorReset,
 		colorGreen, colorReset,
 		// Batch
@@ -107,9 +105,8 @@ func main() {
 	videoMode := flag.Bool("v", false, "Video mode")
 	outDir := flag.String("o", "", "Output directory")
 	quiet := flag.Bool("q", false, "Quiet mode")
-	sponsorBlock := flag.Bool("s", false, "Remove sponsor segments")
-	sponsorMark := flag.Bool("sp-mark", false, "Mark sponsor segments as chapters instead of removing")
-	sponsorCats := flag.String("sp-cats", "default", "SponsorBlock categories (e.g. sponsor,intro,outro)")
+	sponsorRemove := flag.String("sponsorblock-remove", "", "SponsorBlock categories to remove (e.g. default, all)")
+	sponsorMark := flag.String("sponsorblock-mark", "", "SponsorBlock categories to mark as chapters (e.g. all)")
 	subtitles := flag.Bool("subs", false, "Embed subtitles")
 	selectItems := flag.Bool("select", false, "Interactive playlist item selector")
 	cookies := flag.String("cookies", "", "Extract cookies from browser (e.g. chrome, firefox)")
@@ -200,9 +197,9 @@ func main() {
 			}
 
 			if *musicMode {
-				audioDownload(ytdlpPath, ffmpegPath, workDir, rawUrl, *outDir, proxyURL, *quiet || len(urls) > 1, *sponsorBlock, *sponsorMark, *sponsorCats, *start, *end, plItems, *cookies)
+				audioDownload(ytdlpPath, ffmpegPath, workDir, rawUrl, *outDir, proxyURL, *quiet || len(urls) > 1, *sponsorRemove, *sponsorMark, *start, *end, plItems, *cookies)
 			} else if *videoMode {
-				videoDownload(ytdlpPath, ffmpegPath, workDir, rawUrl, *outDir, proxyURL, *quiet || len(urls) > 1, *sponsorBlock, *sponsorMark, *sponsorCats, *subtitles, *start, *end, plItems, *cookies)
+				videoDownload(ytdlpPath, ffmpegPath, workDir, rawUrl, *outDir, proxyURL, *quiet || len(urls) > 1, *sponsorRemove, *sponsorMark, *subtitles, *start, *end, plItems, *cookies)
 			}
 			if len(urls) > 1 {
 				fmt.Printf("%s[%d/%d] Completed: %s%s\n", colorGreen, index+1, len(urls), rawUrl, colorReset)
