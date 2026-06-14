@@ -20,6 +20,7 @@ func usage() {
  ___/ / /_/ /  /  __/ /_/ / / / / / /  / / / / / /  __/
 /____/\__/_/   \___/\__,_/_/ /_/ /_/  /_/_/_/ /_/\___/ %s
       %sUniversal Media Downloader (1000+ Sites)%s
+          %swith Interactive SponsorBlock%s
 
 %sUsage:%s
   streamline -m [flags] <url>    Download audio
@@ -59,6 +60,8 @@ func usage() {
 
 `,
 		colorCyan, colorReset, colorYellow, colorReset,
+		colorGreen, colorReset,
+		colorYellow, colorReset,
 		colorYellow, colorReset,
 		colorYellow, colorReset,
 		// Core

@@ -29,7 +29,7 @@
 - **Timestamp Clipping**: Download only a specific section of a video/audio using `--start` and `--end` (e.g. `--start 01:00 --end 02:30`).
 - **Rich Metadata**: Automatically embeds ID3 tags, artist metadata, and cover art into the downloaded files.
 - **Interactive Prompts**: Clean, intuitive TUI for selecting media quality and formats.
-- **SponsorBlock Integration**: Pass the `-s` flag to automatically strip out baked-in sponsor segments, intros, and outros.
+- **SponsorBlock Integration**: Interactive prompts to strip out or mark baked-in sponsor segments, intros, and outros (or use the `-s` / `--sp-mark` flags).
 - **Subtitle Embedding**: Embed auto-generated or official subtitles directly into video files.
 - **Firewall & DNS Bypass**: Use the `--dns` flag with a DoH endpoint (e.g. `https://dns.google/resolve`) to securely route traffic through a custom Go-native proxy, bypassing Network Restricted Modes.
 - **Zero Configuration**: Available as a fully bundled single-binary containing all underlying dependencies.
