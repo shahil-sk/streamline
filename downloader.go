@@ -317,6 +317,7 @@ func audioDownload(ytdlpPath, ffmpegPath, workDir, url, outDir, proxyURL string,
 	}
 	if sponsorBlock {
 		args = append(args, "--sponsorblock-remove", sponsorCats)
+		args = append(args, "--force-keyframes-at-cuts")
 	} else if sponsorMark {
 		args = append(args, "--sponsorblock-mark", sponsorCats)
 	}
@@ -491,6 +492,7 @@ func videoDownload(ytdlpPath, ffmpegPath, workDir, url, outDir, proxyURL string,
 	}
 	if sponsorBlock {
 		args = append(args, "--sponsorblock-remove", sponsorCats)
+		args = append(args, "--force-keyframes-at-cuts")
 	} else if sponsorMark {
 		args = append(args, "--sponsorblock-mark", sponsorCats)
 	}
