@@ -260,6 +260,32 @@ func audioDownload(ytdlpPath, ffmpegPath, workDir, url, outDir, proxyURL string,
 		}
 	}
 
+	if !quiet && !sponsorBlock && !sponsorMark {
+		fmt.Printf("%s┌─ SponsorBlock ──────────────────────────────┐%s\n", colorYellow, colorReset)
+		sbOptions := []string{
+			"None (Default)",
+			"Remove sponsor segments",
+			"Mark sponsor segments as chapters",
+		}
+		for i, opt := range sbOptions {
+			fmt.Printf("%s│%s %s%d.%s %-40s %s│%s\n",
+				colorYellow, colorReset,
+				colorGreen, i+1, colorReset,
+				opt,
+				colorYellow, colorReset)
+		}
+		fmt.Printf("%s└─────────────────────────────────────────────┘%s\n\n", colorYellow, colorReset)
+
+		sbInput := readInput(fmt.Sprintf("%sChoose SponsorBlock option (1-%d) [default: 1]:%s ", colorCyan, len(sbOptions), colorReset))
+		sbChoice, _ := strconv.Atoi(sbInput)
+		if sbChoice == 2 {
+			sponsorBlock = true
+		} else if sbChoice == 3 {
+			sponsorMark = true
+		}
+		fmt.Println()
+	}
+
 	if !quiet {
 		spinner := NewSpinner("Fetching video information...")
 		spinner.Start()
@@ -424,6 +450,32 @@ func videoDownload(ytdlpPath, ffmpegPath, workDir, url, outDir, proxyURL string,
 		default:
 			printStatus("warning", "Invalid choice, using best quality")
 			format = "bestvideo+bestaudio/best"
+		}
+
+		if !sponsorBlock && !sponsorMark {
+			fmt.Printf("%s┌─ SponsorBlock ──────────────────────────────┐%s\n", colorYellow, colorReset)
+			sbOptions := []string{
+				"None (Default)",
+				"Remove sponsor segments",
+				"Mark sponsor segments as chapters",
+			}
+			for i, opt := range sbOptions {
+				fmt.Printf("%s│%s %s%d.%s %-40s %s│%s\n",
+					colorYellow, colorReset,
+					colorGreen, i+1, colorReset,
+					opt,
+					colorYellow, colorReset)
+			}
+			fmt.Printf("%s└─────────────────────────────────────────────┘%s\n\n", colorYellow, colorReset)
+
+			sbInput := readInput(fmt.Sprintf("%sChoose SponsorBlock option (1-%d) [default: 1]:%s ", colorCyan, len(sbOptions), colorReset))
+			sbChoice, _ := strconv.Atoi(sbInput)
+			if sbChoice == 2 {
+				sponsorBlock = true
+			} else if sbChoice == 3 {
+				sponsorMark = true
+			}
+			fmt.Println()
 		}
 	}
 
