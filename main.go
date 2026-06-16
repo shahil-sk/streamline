@@ -20,7 +20,6 @@ func usage() {
  ___/ / /_/ /  /  __/ /_/ / / / / / /  / / / / / /  __/
 /____/\__/_/   \___/\__,_/_/ /_/ /_/  /_/_/_/ /_/\___/ %s
       %sUniversal Media Downloader (1000+ Sites)%s
-  %swith Native SponsorBlock & Thread-Safe Core%s
 
 %sUsage:%s
   streamline [mode] [flags] <url>
@@ -130,7 +129,7 @@ func main() {
 		printBanner()
 		fmt.Printf("%sStreamline%s is an open-source universal media downloader.\n", colorCyan, colorReset)
 		fmt.Printf("Built with ❤️ by %sShahil Ahmed (SK)%s\n\n", colorYellow, colorReset)
-		fmt.Printf("%sVersion:%s  v1.1.0 (Thread-Safe Core)\n", colorCyan, colorReset)
+		fmt.Printf("%sVersion:%s  v1.1.3 (Thread-Safe Core)\n", colorCyan, colorReset)
 		fmt.Printf("%sGitHub:%s   https://github.com/shahil-sk/streamline\n", colorCyan, colorReset)
 		fmt.Printf("%sLicense:%s  MIT License\n\n", colorCyan, colorReset)
 		os.Exit(0)

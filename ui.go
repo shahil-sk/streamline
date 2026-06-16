@@ -164,8 +164,7 @@ func printBanner() {
   \__ \/ __/ ___/ _ \/ __ '/ __ '__ \   / / / __ \/ _ \
  ___/ / /_/ /  /  __/ /_/ / / / / / /  / / / / / /  __/
 /____/\__/_/   \___/\__,_/_/ /_/ /_/  /_/_/_/ /_/\___/ 
-      Universal Media Downloader (1000+ Sites)
-  with Native SponsorBlock & Thread-Safe Core`
+      Universal Media Downloader (1000+ Sites)`
 	fmt.Printf("%s%s%s\n\n", colorCyan, banner, colorReset)
 }
 
