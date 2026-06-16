@@ -3,7 +3,6 @@ package main
 import (
 	"bufio"
 	"fmt"
-	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -33,7 +32,20 @@ func runYTDLPWithProgress(ytdlpPath, ffmpegDir, description string, quiet bool, 
 	check(err)
 	check(cmd.Start())
 
-	scanner := bufio.NewScanner(io.MultiReader(stdout, stderr))
+	errChan := make(chan string, 1)
+	go func() {
+		var localErr string
+		errScanner := bufio.NewScanner(stderr)
+		for errScanner.Scan() {
+			t := errScanner.Text()
+			if strings.Contains(t, "ERROR:") {
+				localErr = t
+			}
+		}
+		errChan <- localErr
+	}()
+
+	scanner := bufio.NewScanner(stdout)
 	scanner.Buffer(make([]byte, scannerBufSize), scannerBufSize)
 
 	var (
@@ -137,6 +149,10 @@ func runYTDLPWithProgress(ytdlpPath, ffmpegDir, description string, quiet bool, 
 		progressBar.Complete()
 	}
 	if err := cmd.Wait(); err != nil {
+		errStr := <-errChan
+		if errStr != "" {
+			lastError = errStr
+		}
 		if lastError != "" {
 			fmt.Fprintf(os.Stderr, "\n%s✗ Download failed:%s %s\n", colorRed, colorReset, lastError)
 		} else {

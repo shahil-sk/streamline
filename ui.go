@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"runtime"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -99,10 +100,11 @@ func (p *ProgressBar) Complete() {
 }
 
 type Spinner struct {
-	frames  []string
-	index   int
-	message string
-	stop    chan struct{}
+	frames   []string
+	index    int
+	message  string
+	stop     chan struct{}
+	stopOnce sync.Once
 }
 
 func NewSpinner(message string) *Spinner {
@@ -131,13 +133,15 @@ func (s *Spinner) Start() {
 
 // Stop signals the spinner goroutine via channel close (race-free, one-shot)
 func (s *Spinner) Stop(success bool) {
-	close(s.stop)
-	time.Sleep(100 * time.Millisecond)
-	icon, color := "[OK]", colorGreen
-	if !success {
-		icon, color = "[FAIL]", colorRed
-	}
-	fmt.Printf("\r%s%s%s %s\n", color, icon, colorReset, s.message)
+	s.stopOnce.Do(func() {
+		close(s.stop)
+		time.Sleep(100 * time.Millisecond)
+		icon, color := "[OK]", colorGreen
+		if !success {
+			icon, color = "[FAIL]", colorRed
+		}
+		fmt.Printf("\r%s%s%s %s\n", color, icon, colorReset, s.message)
+	})
 }
 
 func formatDuration(seconds float64) string {

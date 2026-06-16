@@ -9,6 +9,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 )
 
 func isTerminal() bool {
@@ -19,21 +20,30 @@ func isTerminal() bool {
 var (
 	cleanups    []func()
 	cleanupsRun bool
+	cleanupMu   sync.Mutex
 )
 
 func registerCleanup(fn func()) {
 	if fn != nil {
+		cleanupMu.Lock()
 		cleanups = append(cleanups, fn)
+		cleanupMu.Unlock()
 	}
 }
 
 func runCleanups() {
+	cleanupMu.Lock()
 	if cleanupsRun {
+		cleanupMu.Unlock()
 		return
 	}
 	cleanupsRun = true
-	for i := len(cleanups) - 1; i >= 0; i-- {
-		cleanups[i]()
+	fns := make([]func(), len(cleanups))
+	copy(fns, cleanups)
+	cleanupMu.Unlock()
+
+	for i := len(fns) - 1; i >= 0; i-- {
+		fns[i]()
 	}
 }
 
@@ -157,8 +167,10 @@ func copyFile(src, dst string) error {
 	if err != nil {
 		return err
 	}
-	defer out.Close()
 	_, err = io.Copy(out, in)
+	if closeErr := out.Close(); err == nil {
+		err = closeErr
+	}
 	return err
 }
 

@@ -165,9 +165,9 @@ func main() {
 	registerCleanup(cleanup)
 	defer runCleanups()
 
-	workDir, err := os.MkdirTemp("", "streamline-work")
+	baseWorkDir, err := os.MkdirTemp("", "streamline-work")
 	check(err)
-	registerCleanup(func() { os.RemoveAll(workDir) })
+	registerCleanup(func() { os.RemoveAll(baseWorkDir) })
 
 	var proxyURL string
 	if *dnsServer != "" {
@@ -190,6 +190,12 @@ func main() {
 			if len(urls) > 1 {
 				fmt.Printf("\n%s[%d/%d] Processing: %s%s\n", colorCyan, index+1, len(urls), rawUrl, colorReset)
 			}
+
+			workDir, err := os.MkdirTemp(baseWorkDir, "job-*")
+			if err != nil {
+				exitWithError(fmt.Sprintf("Failed to create job dir: %v", err))
+			}
+			defer os.RemoveAll(workDir)
 
 			var plItems string
 			if *selectItems && !*quiet {
