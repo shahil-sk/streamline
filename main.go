@@ -20,67 +20,73 @@ func usage() {
  ___/ / /_/ /  /  __/ /_/ / / / / / /  / / / / / /  __/
 /____/\__/_/   \___/\__,_/_/ /_/ /_/  /_/_/_/ /_/\___/ %s
       %sUniversal Media Downloader (1000+ Sites)%s
-          %swith Native SponsorBlock%s
+  %swith Native SponsorBlock & Thread-Safe Core%s
 
 %sUsage:%s
-  streamline -m [flags] <url>    Download audio
-  streamline -v [flags] <url>    Download video
+  streamline [mode] [flags] <url>
 
 %sExamples:%s
   streamline -m https://youtube.com/watch?v=xxxxx
   streamline -v -q -o ~/Downloads https://youtu.be/xxxxx
+  streamline --batch urls.txt -j 4
 
-%sFlags:%s
+%sModes:%s
+  %s-m%s          Audio only (mp3, flac, etc)
+  %s-v%s          Video + Audio (mp4, mkv, etc)
 
-  [ Core ]
-  %s-m%s          Music/audio mode
-  %s-v%s          Video mode
-  %s-o%s          Output directory (default: current directory)
-  %s-q%s          Quiet mode (skip prompts, use best quality)
-  %s--about%s     Author information
+%sGlobal Flags:%s
+  %s-o%s <dir>    Output directory (default: ./)
+  %s-q%s          Quiet mode (skip prompts, pick best)
+  %s--about%s     Show Author & Version info
 
-  [ Media Processing ]
+%sMedia Options:%s
   %s--subs%s      Embed subtitles (video only)
-  %s--start%s     Start timestamp for clipping (e.g. 01:00)
-  %s--end%s       End timestamp for clipping (e.g. 02:30)
+  %s--start%s     Start timestamp (e.g. 01:00)
+  %s--end%s       End timestamp (e.g. 02:30)
 
-  [ SponsorBlock ]
-  %s--sponsorblock-remove%s CATS  SponsorBlock categories to remove
-  %s--sponsorblock-mark%s CATS    SponsorBlock categories to mark as chapters
+%sSponsorBlock:%s
+  %s--sponsorblock-remove%s <cats>  Remove segments (e.g. sponsor,intro)
+  %s--sponsorblock-mark%s   <cats>  Mark as chapters
 
-  [ Batch & Playlist ]
-  %s--batch%s     File containing URLs to download
-  %s-j%s          Number of concurrent downloads (default: 1)
-  %s--select%s    Interactive playlist item selector (TUI)
+%sBatch & Playlist:%s
+  %s--batch%s <file>  Download URLs from file
+  %s-j%s      <num>   Concurrent downloads (default: 1)
+  %s--select%s        Interactive TUI playlist selector
 
-  [ Network & Auth ]
-  %s--cookies%s   Extract cookies from browser (e.g. chrome, firefox)
-  %s--dns%s       Bypass system DNS via custom server or DoH endpoint
+%sNetwork:%s
+  %s--cookies%s <browser>  Extract cookies (e.g. chrome)
+  %s--dns%s     <server>   Custom DNS / DoH endpoint
 
 `,
 		colorCyan, colorReset, colorYellow, colorReset,
 		colorGreen, colorReset,
 		colorYellow, colorReset,
 		colorYellow, colorReset,
+		// Modes
 		colorYellow, colorReset,
-		// Core
 		colorGreen, colorReset,
 		colorGreen, colorReset,
+		// Global
+		colorYellow, colorReset,
 		colorGreen, colorReset,
 		colorGreen, colorReset,
 		colorGreen, colorReset,
 		// Media
+		colorYellow, colorReset,
 		colorGreen, colorReset,
 		colorGreen, colorReset,
 		colorGreen, colorReset,
 		// Sponsorblock
+		colorYellow, colorReset,
 		colorGreen, colorReset,
 		colorGreen, colorReset,
 		// Batch
+		colorYellow, colorReset,
 		colorGreen, colorReset,
 		colorGreen, colorReset,
 		colorGreen, colorReset,
 		// Network
+		colorYellow, colorReset,
 		colorGreen, colorReset,
 		colorGreen, colorReset)
 	runCleanups()
@@ -124,6 +130,7 @@ func main() {
 		printBanner()
 		fmt.Printf("%sStreamline%s is an open-source universal media downloader.\n", colorCyan, colorReset)
 		fmt.Printf("Built with ❤️ by %sShahil Ahmed (SK)%s\n\n", colorYellow, colorReset)
+		fmt.Printf("%sVersion:%s  v1.1.0 (Thread-Safe Core)\n", colorCyan, colorReset)
 		fmt.Printf("%sGitHub:%s   https://github.com/shahil-sk/streamline\n", colorCyan, colorReset)
 		fmt.Printf("%sLicense:%s  MIT License\n\n", colorCyan, colorReset)
 		os.Exit(0)
