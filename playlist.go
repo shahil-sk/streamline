@@ -22,7 +22,11 @@ func selectPlaylistItems(ytdlpPath, url, proxyURL, cookies string) string {
 		args = append([]string{"--proxy", proxyURL}, args...)
 	}
 	if cookies != "" {
-		args = append([]string{"--cookies-from-browser", cookies}, args...)
+		if strings.Contains(cookies, ".") || strings.Contains(cookies, "/") || strings.Contains(cookies, "\\") {
+			args = append([]string{"--cookies", cookies}, args...)
+		} else {
+			args = append([]string{"--cookies-from-browser", cookies}, args...)
+		}
 	}
 
 	cmd := exec.Command(ytdlpPath, args...)

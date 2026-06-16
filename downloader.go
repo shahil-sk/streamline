@@ -315,7 +315,11 @@ func audioDownload(ytdlpPath, ffmpegPath, workDir, url, outDir, proxyURL string,
 		args = append(args, "--proxy", proxyURL)
 	}
 	if cookies != "" {
-		args = append(args, "--cookies-from-browser", cookies)
+		if strings.Contains(cookies, ".") || strings.Contains(cookies, "/") || strings.Contains(cookies, "\\") {
+			args = append(args, "--cookies", cookies)
+		} else {
+			args = append(args, "--cookies-from-browser", cookies)
+		}
 	}
 	if start != "" || end != "" {
 		if start == "" {
@@ -467,7 +471,11 @@ func videoDownload(ytdlpPath, ffmpegPath, workDir, url, outDir, proxyURL string,
 		args = append(args, "--proxy", proxyURL)
 	}
 	if cookies != "" {
-		args = append(args, "--cookies-from-browser", cookies)
+		if strings.Contains(cookies, ".") || strings.Contains(cookies, "/") || strings.Contains(cookies, "\\") {
+			args = append(args, "--cookies", cookies)
+		} else {
+			args = append(args, "--cookies-from-browser", cookies)
+		}
 	}
 	if start != "" || end != "" {
 		if start == "" {

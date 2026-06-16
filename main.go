@@ -53,7 +53,7 @@ func usage() {
   %s--select%s        Interactive TUI playlist selector
 
 %sNetwork:%s
-  %s--cookies%s <browser>  Extract cookies (e.g. chrome)
+  %s--cookies%s <browser|file>  Browser name (chrome, firefox) or cookies.txt path
   %s--dns%s     <server>   Custom DNS / DoH endpoint
 
 `,
@@ -114,7 +114,9 @@ func main() {
 	sponsorMark := flag.String("sponsorblock-mark", "", "SponsorBlock categories to mark as chapters (e.g. all)")
 	subtitles := flag.Bool("subs", false, "Embed subtitles")
 	selectItems := flag.Bool("select", false, "Interactive playlist item selector")
-	cookies := flag.String("cookies", "", "Extract cookies from browser (e.g. chrome, firefox)")
+	var cookies string
+	flag.StringVar(&cookies, "cookies", "", "Browser name (chrome, firefox) or path to cookies.txt")
+	flag.StringVar(&cookies, "cookie", "", "Alias for --cookies")
 	about := flag.Bool("about", false, "Show author info")
 	dnsServer := flag.String("dns", "", "Use custom DNS server (bypasses system DNS)")
 	start := flag.String("start", "", "Start timestamp for clipping (e.g. 01:00)")
@@ -205,13 +207,13 @@ func main() {
 
 			var plItems string
 			if *selectItems && !*quiet {
-				plItems = selectPlaylistItems(ytdlpPath, rawUrl, proxyURL, *cookies)
+				plItems = selectPlaylistItems(ytdlpPath, rawUrl, proxyURL, cookies)
 			}
 
 			if *musicMode {
-				audioDownload(ytdlpPath, ffmpegPath, workDir, rawUrl, *outDir, proxyURL, *quiet || len(urls) > 1, *sponsorRemove, *sponsorMark, *start, *end, plItems, *cookies)
+				audioDownload(ytdlpPath, ffmpegPath, workDir, rawUrl, *outDir, proxyURL, *quiet || len(urls) > 1, *sponsorRemove, *sponsorMark, *start, *end, plItems, cookies)
 			} else if *videoMode {
-				videoDownload(ytdlpPath, ffmpegPath, workDir, rawUrl, *outDir, proxyURL, *quiet || len(urls) > 1, *sponsorRemove, *sponsorMark, *subtitles, *start, *end, plItems, *cookies)
+				videoDownload(ytdlpPath, ffmpegPath, workDir, rawUrl, *outDir, proxyURL, *quiet || len(urls) > 1, *sponsorRemove, *sponsorMark, *subtitles, *start, *end, plItems, cookies)
 			}
 			if len(urls) > 1 {
 				fmt.Printf("%s[%d/%d] Completed: %s%s\n", colorGreen, index+1, len(urls), rawUrl, colorReset)
