@@ -131,7 +131,7 @@ func main() {
 		printBanner()
 		fmt.Printf("%sStreamline%s is an open-source universal media downloader.\n", colorCyan, colorReset)
 		fmt.Printf("Built with ❤️ by %sShahil Ahmed (SK)%s\n\n", colorYellow, colorReset)
-		fmt.Printf("%sVersion:%s  v1.2.0 (Thread-Safe Core)\n", colorCyan, colorReset)
+		fmt.Printf("%sVersion:%s  v5.0.1 (Thread-Safe Core)\n", colorCyan, colorReset)
 		fmt.Printf("%sGitHub:%s   https://github.com/shahil-sk/streamline\n", colorCyan, colorReset)
 		fmt.Printf("%sLicense:%s  MIT License\n\n", colorCyan, colorReset)
 		os.Exit(0)
